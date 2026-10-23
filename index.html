@@ -3,20 +3,23 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Minimal C++ Compiler</title>
+  <title>Minimal C++ Compiler with Input/Output</title>
   <style>
     body { font-family: monospace; background: #111; color: #eee; padding: 20px; max-width: 800px; margin: auto; }
-    textarea { width: 100%; height: 200px; background: #222; color: #0ff; border: 1px solid #444; padding: 10px; font-size: 14px; resize: vertical; }
-    button { background: #0b0; color: #fff; border: none; padding: 10px 20px; font-size: 16px; cursor: pointer; margin-top: 10px; }
+    textarea, input { width: 100%; background: #222; color: #0ff; border: 1px solid #444; padding: 10px; font-size: 14px; box-sizing: border-box; }
+    textarea { height: 180px; resize: vertical; }
+    input { height: 40px; margin-bottom: 10px; }
+    button { background: #0b0; color: #fff; border: none; padding: 10px 20px; font-size: 16px; cursor: pointer; margin-top: 5px; }
     button:hover { background: #090; }
-    pre { background: #1a1a1a; border: 1px solid #333; padding: 15px; min-height: 100px; color: #0f0; white-space: pre-wrap; }
+    pre { background: #1a1a1a; border: 1px solid #333; padding: 15px; min-height: 80px; color: #0f0; white-space: pre-wrap; }
+    .label { margin-top: 15px; margin-bottom: 5px; font-weight: bold; color: #aaa; display: block; }
   </style>
 </head>
 <body>
 
-  <h2>Minimal C++ Compiler</h2>
-  <p>Type your code below (supports Hello World and basic math functions):</p>
-
+  <h2>Minimal C++ Compiler (I/O Support)</h2>
+  
+  <span class="label">C++ Source Code:</span>
   <textarea id="source-code">#include <iostream>
 
 double add(double a, double b) { return a + b; }
@@ -26,71 +29,105 @@ double div(double a, double b) { return b != 0 ? a / b : 0; }
 
 int main() {
     std::cout << "Hello, World!" << std::endl;
-    std::cout << "Add (10 + 5) = " << add(10, 5) << std::endl;
-    std::cout << "Sub (10 - 5) = " << sub(10, 5) << std::endl;
-    std::cout << "Mult (10 * 5) = " << mult(10, 5) << std::endl;
-    std::cout << "Div (10 / 5) = " << div(10, 5) << std::endl;
+    
+    double num1, num2;
+    std::cout << "Enter two numbers (e.g., 10 5): ";
+    std::cin >> num1 >> num2;
+    
+    std::cout << "Addition: " << add(num1, num2) << std::endl;
+    std::cout << "Subtraction: " << sub(num1, num2) << std::endl;
+    std::cout << "Multiplication: " << mult(num1, num2) << std::endl;
+    std::cout << "Division: " << div(num1, num2) << std::endl;
     return 0;
 }</textarea>
+
+  <span class="label">User Input (std::cin values separated by spaces):</span>
+  <input type="text" id="user-input" value="10 5" placeholder="Enter inputs here (e.g. 10 5)">
 
   <br>
   <button onclick="compileAndRun()">Compile & Run</button>
 
-  <h3>Output:</h3>
+  <span class="label">Output:</span>
   <pre id="output">Click "Compile & Run" to execute...</pre>
 
   <script>
+    // Helper functions for C++ math operations
+    function add(a, b) { return a + b; }
+    function sub(a, b) { return a - b; }
+    function mult(a, b) { return a * b; }
+    function div(a, b) { return b !== 0 ? a / b : "Error: Division by zero"; }
+
     function compileAndRun() {
       const code = document.getElementById('source-code').value;
+      const rawInput = document.getElementById('user-input').value;
       const outputBox = document.getElementById('output');
-      outputBox.innerText = "Compiling...";
+      
+      outputBox.innerText = "Compiling & executing...";
 
       setTimeout(() => {
         let output = "";
         try {
-          // Simple custom parser for the requested operations
           if (!code.includes("main()")) {
             throw new Error("Compilation Error: Missing 'int main()'");
           }
 
-          // Evaluate cout statements directly or extract arithmetic
+          const inputs = rawInput.trim().split(/\s+/).filter(Boolean);
+          let inputIndex = 0;
+          let variables = {};
+
           const lines = code.split("\n");
-          let vars = {};
 
           lines.forEach(line => {
             let l = line.trim();
-            if (l.startsWith("std::cout")) {
-              let part = l.split("<<").slice(1).join("<<").replace(/;$/, "").trim();
-              if (part === 'std::endl' || part === '"\\n"') {
-                output += "\n";
-              } else if (part.startsWith('"') && part.endsWith('"')) {
-                output += part.slice(1, -1);
-              } else {
-                // Handle function calls inside cout
-                try {
-                  let evaluated = eval(part.replace(/add\(/g, "add(").replace(/sub\(/g, "sub("));
-                  output += evaluated;
-                } catch {
-                  output += part;
+
+            // Handle std::cin input
+            if (l.startsWith("std::cin")) {
+              let parts = l.split(">>").slice(1);
+              parts.forEach(p => {
+                let varName = p.replace(/;$/, "").trim();
+                if (inputs[inputIndex] !== undefined) {
+                  let val = inputs[inputIndex++];
+                  variables[varName] = isNaN(val) ? val : Number(val);
                 }
-              }
+              });
+            }
+
+            // Handle std::cout output
+            else if (l.startsWith("std::cout")) {
+              let part = l.split("<<").slice(1);
+              part.forEach(p => {
+                let expr = p.replace(/;$/, "").trim();
+                if (expr === 'std::endl' || expr === '"\\n"') {
+                  output += "\n";
+                } else if (expr.startsWith('"') && expr.endsWith('"')) {
+                  output += expr.slice(1, -1);
+                } else {
+                  // Replace variable names with their actual input values
+                  let evaluatedExpr = expr;
+                  Object.keys(variables).forEach(v => {
+                    const regex = new RegExp(`\\b${v}\\b`, 'g');
+                    evaluatedExpr = evaluatedExpr.replace(regex, variables[v]);
+                  });
+
+                  try {
+                    let result = eval(evaluatedExpr);
+                    output += result !== undefined ? result : evaluatedExpr;
+                  } catch {
+                    output += evaluatedExpr;
+                  }
+                }
+              });
             }
           });
 
           if (!output) output = "Compilation successful, but no stdout output produced.";
         } catch (err) {
-          output = err.message;
+          output = "Error: " + err.message;
         }
 
         outputBox.innerText = output;
-      }, 150);
+      }, 100);
     }
-
-    // Helper functions simulated for execution
-    function add(a, b) { return a + b; }
-    function sub(a, b) { return a - b; }
-    function mult(a, b) { return a * b; }
-    function div(a, b) { return b !== 0 ? a / b : "Error: Division by zero"; }
   </script>
 
 </body>

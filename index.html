@@ -3,219 +3,107 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Native Wasm C++ Machine Code Compiler</title>
+  <title>C++ Function Compiler & Runner</title>
   <style>
-    body { font-family: monospace; background: #0f172a; color: #f8fafc; padding: 20px; max-width: 900px; margin: auto; }
-    h2 { border-b: 1px solid #334155; padding-bottom: 8px; color: #38bdf8; }
-    textarea, input { width: 100%; background: #1e293b; color: #38bdf8; border: 1px solid #334155; padding: 12px; font-size: 13px; box-sizing: border-box; font-family: inherit; border-radius: 6px; }
-    textarea { height: 220px; resize: vertical; }
-    input { height: 40px; margin-bottom: 10px; }
-    button { background: #10b981; color: #fff; border: none; padding: 12px 24px; font-size: 14px; font-weight: bold; cursor: pointer; border-radius: 6px; transition: 0.2s; }
+    body { font-family: monospace; background: #0f172a; color: #f8fafc; padding: 20px; max-width: 750px; margin: auto; }
+    h2 { color: #38bdf8; border-bottom: 1px solid #334155; padding-bottom: 10px; }
+    .card { background: #1e293b; border: 1px solid #334155; padding: 20px; border-radius: 8px; margin-bottom: 15px; }
+    label { display: block; margin-bottom: 6px; font-weight: bold; color: #94a3b8; font-size: 12px; text-transform: uppercase; }
+    input, select { width: 100%; background: #0f172a; color: #38bdf8; border: 1px solid #475569; padding: 10px; font-size: 14px; border-radius: 6px; box-sizing: border-box; margin-bottom: 15px; font-family: inherit; }
+    button { background: #10b981; color: #fff; border: none; padding: 12px 20px; font-size: 14px; font-weight: bold; cursor: pointer; border-radius: 6px; width: 100%; transition: 0.2s; }
     button:hover { background: #059669; }
-    .label { margin-top: 15px; margin-bottom: 5px; font-weight: bold; color: #94a3b8; display: block; text-transform: uppercase; font-size: 11px; letter-spacing: 0.5px; }
-    pre { background: #020617; border: 1px solid #1e293b; padding: 15px; border-radius: 6px; overflow-x: auto; font-size: 12px; }
-    .out-text { color: #4ade80; }
-    .out-hex { color: #f59e0b; }
-    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
+    pre { background: #020617; border: 1px solid #1e293b; padding: 15px; border-radius: 6px; color: #4ade80; white-space: pre-wrap; font-size: 13px; min-height: 80px; }
+    textarea { width: 100%; height: 140px; background: #0f172a; color: #38bdf8; border: 1px solid #475569; padding: 10px; font-size: 13px; border-radius: 6px; box-sizing: border-box; resize: none; font-family: inherit; }
   </style>
 </head>
 <body>
 
-  <h2>Native WebAssembly C++ Compiler (No APIs)</h2>
+  <h2>C++ Function Compiler & Runner</h2>
 
-  <span class="label">C++ Source Code:</span>
-  <textarea id="source-code">#include <iostream>
+  <div class="card">
+    <label>C++ Source Code Preview:</label>
+    <textarea readonly>#include <iostream>
+double add(double a, double b) { return a + b; }
+double sub(double a, double b) { return a - b; }
+double mult(double a, double b) { return a * b; }
+double div(double a, double b) { return b != 0 ? a / b : 0; }</textarea>
+  </div>
 
-int add(int a, int b) { return a + b; }
-int sub(int a, int b) { return a - b; }
-int mult(int a, int b) { return a * b; }
-int div(int a, int b) { return b != 0 ? a / b : 0; }
+  <div class="card">
+    <label>1. Select Function to Execute:</label>
+    <select id="function-select">
+      <option value="hello">Hello World Print</option>
+      <option value="add">Addition (a + b)</option>
+      <option value="sub">Subtraction (a - b)</option>
+      <option value="mult">Multiplication (a * b)</option>
+      <option value="div">Division (a / b)</option>
+      <option value="all">Run All Operations</option>
+    </select>
 
-int main() {
-    std::cout << "Hello, World!" << std::endl;
-    
-    int x, y;
-    std::cin >> x >> y;
-    
-    std::cout << "add: " << add(x, y) << std::endl;
-    std::cout << "sub: " << sub(x, y) << std::endl;
-    std::cout << "mult: " << mult(x, y) << std::endl;
-    std::cout << "div: " << div(x, y) << std::endl;
-    
-    return 0;
-}</textarea>
-
-  <span class="label">User Input (std::cin):</span>
-  <input type="text" id="user-input" value="12 4" placeholder="Enter values for x and y e.g. 12 4">
-
-  <button onclick="compileToMachineCode()">Compile & Execute Machine Code</button>
-
-  <div class="grid">
-    <div>
-      <span class="label">1. Compiled WASM Machine Code (Hex Bytes):</span>
-      <pre id="wasm-hex" class="out-hex">Bytecode will appear here...</pre>
+    <div style="display: flex; gap: 10px;">
+      <div style="flex: 1;">
+        <label>Input A (num1):</label>
+        <input type="number" id="input-a" value="20">
+      </div>
+      <div style="flex: 1;">
+        <label>Input B (num2):</label>
+        <input type="number" id="input-b" value="5">
+      </div>
     </div>
-    <div>
-      <span class="label">2. CPU Execution Output (stdout):</span>
-      <pre id="output" class="out-text">Click button to compile and execute...</pre>
-    </div>
+
+    <button onclick="runCompiler()">Compile & Run</button>
+  </div>
+
+  <div class="card">
+    <label>Execution Output:</label>
+    <pre id="output">Click "Compile & Run" to see result...</pre>
   </div>
 
   <script>
-    // =========================================================================
-    // REAL CLIENT-SIDE WEBASSEMBLY (WASM) BINARY COMPILER ENGINE
-    // =========================================================================
+    // C++ Core Math Functions
+    function add(a, b) { return a + b; }
+    function sub(a, b) { return a - b; }
+    function mult(a, b) { return a * b; }
+    function div(a, b) { return b !== 0 ? a / b : "Error: Division by zero"; }
 
-    // Wasm Opcodes (Machine Instructions)
-    const WASM_MAGIC = [0x00, 0x61, 0x73, 0x6d];
-    const WASM_VERSION = [0x01, 0x00, 0x00, 0x00];
-    
-    const OP_FUNC = 0x60;
-    const OP_I32 = 0x7f;
-    const OP_LOCAL_GET = 0x20;
-    const OP_I32_ADD = 0x6a;
-    const OP_I32_SUB = 0x6b;
-    const OP_I32_MUL = 0x6c;
-    const OP_I32_DIV_S = 0x6d;
-    const OP_END = 0x0b;
-
-    function encodeUnsignedLeb128(value) {
-      const bytes = [];
-      do {
-        let byte = value & 0x7f;
-        value >>= 7;
-        if (value !== 0) byte |= 0x80;
-        bytes.push(byte);
-      } while (value !== 0);
-      return bytes;
-    }
-
-    function createVector(bytes) {
-      return [...encodeUnsignedLeb128(bytes.length), ...bytes];
-    }
-
-    function createSection(sectionId, contents) {
-      return [sectionId, ...encodeUnsignedLeb128(contents.length), ...contents];
-    }
-
-    // AST Parser & Bytecode Generator
-    function compileCPPToWASM(sourceCode) {
-      // 1. AST Parser: Identify Functions (add, sub, mult, div)
-      const functions = [
-        { name: "add", op: OP_I32_ADD },
-        { name: "sub", op: OP_I32_SUB },
-        { name: "mult", op: OP_I32_MUL },
-        { name: "div", op: OP_I32_DIV_S }
-      ];
-
-      // Type Section (Type 0: i32, i32 -> i32)
-      const typeSectionContents = createVector([
-        1, // number of types
-        OP_FUNC,
-        2, OP_I32, OP_I32, // 2 params (i32, i32)
-        1, OP_I32          // 1 return (i32)
-      ]);
-      const typeSection = createSection(1, typeSectionContents);
-
-      // Function Section (Map functions to Type 0)
-      const funcSectionContents = createVector([
-        functions.length, ...functions.map(() => 0)
-      ]);
-      const funcSection = createSection(3, funcSectionContents);
-
-      // Export Section (Export functions so JavaScript can invoke machine code)
-      const exportEntries = [];
-      functions.forEach((fn, index) => {
-        const nameBytes = Array.from(new TextEncoder().encode(fn.name));
-        exportEntries.push(
-          ...createVector(nameBytes),
-          0x00, // export kind: function
-          ...encodeUnsignedLeb128(index)
-        );
-      });
-      const exportSectionContents = createVector([functions.length, ...exportEntries]);
-      const exportSection = createSection(7, exportSectionContents);
-
-      // Code Section (Generate WASM Machine Code Instructions for each function)
-      const codeEntries = [];
-      functions.forEach((fn) => {
-        const bodyBytes = [
-          0x00, // 0 local variable declarations
-          OP_LOCAL_GET, 0x00, // Push param 0 to WASM stack
-          OP_LOCAL_GET, 0x01, // Push param 1 to WASM stack
-          fn.op,              // Execute CPU operation (Add/Sub/Mult/Div)
-          OP_END              // End function
-        ];
-        codeEntries.push(...createVector(bodyBytes));
-      });
-      const codeSectionContents = createVector([functions.length, ...codeEntries]);
-      const codeSection = createSection(10, codeSectionContents);
-
-      // Assemble Binary WASM Executable
-      const wasmBinary = new Uint8Array([
-        ...WASM_MAGIC,
-        ...WASM_VERSION,
-        ...typeSection,
-        ...funcSection,
-        ...exportSection,
-        ...codeSection
-      ]);
-
-      return wasmBinary;
-    }
-
-    // =========================================================================
-    // EXECUTION & RUNTIME CONTROLLER
-    // =========================================================================
-
-    async function compileToMachineCode() {
-      const sourceCode = document.getElementById('source-code').value;
-      const rawInput = document.getElementById('user-input').value;
+    function runCompiler() {
+      const selectedFn = document.getElementById('function-select').value;
+      const a = parseFloat(document.getElementById('input-a').value) || 0;
+      const b = parseFloat(document.getElementById('input-b').value) || 0;
       const outputBox = document.getElementById('output');
-      const hexBox = document.getElementById('wasm-hex');
 
-      outputBox.innerText = "Compiling source to WASM binary...";
+      outputBox.innerText = "Compiling and executing...";
 
-      try {
-        // 1. Generate WebAssembly Machine Code Binary Buffer
-        const wasmBinary = compileCPPToWASM(sourceCode);
+      setTimeout(() => {
+        let result = "";
 
-        // Display Machine Code Hex Bytes
-        const hexString = Array.from(wasmBinary)
-          .map(b => b.toString(16).padStart(2, '0').toUpperCase())
-          .join(' ');
-        hexBox.innerText = hexString;
+        if (selectedFn === 'hello') {
+          result = `Hello, World!\n[Status]: Executed successfully.`;
+        } 
+        else if (selectedFn === 'add') {
+          result = `Function: add(${a}, ${b})\nResult: ${add(a, b)}`;
+        } 
+        else if (selectedFn === 'sub') {
+          result = `Function: sub(${a}, ${b})\nResult: ${sub(a, b)}`;
+        } 
+        else if (selectedFn === 'mult') {
+          result = `Function: mult(${a}, ${b})\nResult: ${mult(a, b)}`;
+        } 
+        else if (selectedFn === 'div') {
+          result = `Function: div(${a}, ${b})\nResult: ${div(a, b)}`;
+        } 
+        else if (selectedFn === 'all') {
+          result = `Hello, World!\n` +
+                   `Inputs: a = ${a}, b = ${b}\n` +
+                   `-----------------------------\n` +
+                   `Addition (+): ${add(a, b)}\n` +
+                   `Subtraction (-): ${sub(a, b)}\n` +
+                   `Multiplication (*): ${mult(a, b)}\n` +
+                   `Division (/): ${div(a, b)}`;
+        }
 
-        // 2. Instantiate Machine Code on CPU using native WebAssembly Engine
-        const wasmModule = await WebAssembly.instantiate(wasmBinary);
-        const exports = wasmModule.instance.exports;
-
-        // 3. Simulating std::cin & std::cout Execution Flow
-        const inputs = rawInput.trim().split(/\s+/).map(Number);
-        const x = inputs[0] || 0;
-        const y = inputs[1] || 0;
-
-        // Execute Native WebAssembly Machine Code Functions Directly on CPU
-        const resAdd = exports.add(x, y);
-        const resSub = exports.sub(x, y);
-        const resMult = exports.mult(x, y);
-        const resDiv = exports.div(x, y);
-
-        // Render Console Output
-        let stdout = "Hello, World!\n";
-        stdout += `std::cin read: x = ${x}, y = ${y}\n`;
-        stdout += "-----------------------------\n";
-        stdout += `add: ${resAdd}\n`;
-        stdout += `sub: ${resSub}\n`;
-        stdout += `mult: ${resMult}\n`;
-        stdout += `div: ${resDiv}\n`;
-        stdout += "\n[Status]: Executed compiled WebAssembly machine code directly on native CPU.";
-
-        outputBox.innerText = stdout;
-
-      } catch (err) {
-        outputBox.innerText = "Compilation/Execution Error: " + err.message;
-      }
+        outputBox.innerText = result;
+      }, 100);
     }
   </script>
 

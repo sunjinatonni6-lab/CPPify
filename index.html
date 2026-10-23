@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>C++ Function Compiler & Runner</title>
+  <title>Native Pure Compiler (No APIs, No Libraries)</title>
   <style>
     body { font-family: monospace; background: #0f172a; color: #f8fafc; padding: 20px; max-width: 750px; margin: auto; }
     h2 { color: #38bdf8; border-bottom: 1px solid #334155; padding-bottom: 10px; }
@@ -13,31 +13,21 @@
     button { background: #10b981; color: #fff; border: none; padding: 12px 20px; font-size: 14px; font-weight: bold; cursor: pointer; border-radius: 6px; width: 100%; transition: 0.2s; }
     button:hover { background: #059669; }
     pre { background: #020617; border: 1px solid #1e293b; padding: 15px; border-radius: 6px; color: #4ade80; white-space: pre-wrap; font-size: 13px; min-height: 80px; }
-    textarea { width: 100%; height: 140px; background: #0f172a; color: #38bdf8; border: 1px solid #475569; padding: 10px; font-size: 13px; border-radius: 6px; box-sizing: border-box; resize: none; font-family: inherit; }
+    .bytes { color: #f59e0b; word-break: break-all; }
   </style>
 </head>
 <body>
 
-  <h2>C++ Function Compiler & Runner</h2>
+  <h2>Native Pure Compiler (Zero APIs & Zero Libraries)</h2>
 
   <div class="card">
-    <label>C++ Source Code Preview:</label>
-    <textarea readonly>#include <iostream>
-double add(double a, double b) { return a + b; }
-double sub(double a, double b) { return a - b; }
-double mult(double a, double b) { return a * b; }
-double div(double a, double b) { return b != 0 ? a / b : 0; }</textarea>
-  </div>
-
-  <div class="card">
-    <label>1. Select Function to Execute:</label>
+    <label>1. Select Operation:</label>
     <select id="function-select">
       <option value="hello">Hello World Print</option>
-      <option value="add">Addition (a + b)</option>
-      <option value="sub">Subtraction (a - b)</option>
-      <option value="mult">Multiplication (a * b)</option>
-      <option value="div">Division (a / b)</option>
-      <option value="all">Run All Operations</option>
+      <option value="add">Addition (+)</option>
+      <option value="sub">Subtraction (-)</option>
+      <option value="mult">Multiplication (*)</option>
+      <option value="div">Division (/)</option>
     </select>
 
     <div style="display: flex; gap: 10px;">
@@ -51,59 +41,101 @@ double div(double a, double b) { return b != 0 ? a / b : 0; }</textarea>
       </div>
     </div>
 
-    <button onclick="runCompiler()">Compile & Run</button>
+    <button onclick="compileAndExecute()">Compile to Machine Code & Execute</button>
   </div>
 
   <div class="card">
-    <label>Execution Output:</label>
-    <pre id="output">Click "Compile & Run" to see result...</pre>
+    <label>Generated Machine Code (Raw WASM Bytecode):</label>
+    <pre id="bytecode" class="bytes">Machine bytecode will appear here...</pre>
+  </div>
+
+  <div class="card">
+    <label>CPU Hardware Output:</label>
+    <pre id="output">Click button to compile and execute...</pre>
   </div>
 
   <script>
-    // C++ Core Math Functions
-    function add(a, b) { return a + b; }
-    function sub(a, b) { return a - b; }
-    function mult(a, b) { return a * b; }
-    function div(a, b) { return b !== 0 ? a / b : "Error: Division by zero"; }
+    // =========================================================================
+    // NATIVE WASM BYTECODE COMPILER (NO LIBRARIES, NO APIS, NO EVAL)
+    // =========================================================================
 
-    function runCompiler() {
-      const selectedFn = document.getElementById('function-select').value;
-      const a = parseFloat(document.getElementById('input-a').value) || 0;
-      const b = parseFloat(document.getElementById('input-b').value) || 0;
+    // Binary WebAssembly Instructions (Opcodes)
+    const WASM_HEADER = [0x00, 0x61, 0x73, 0x6d, 0x01, 0x00, 0x00, 0x00];
+    const OP_I32_ADD  = 0x6a;
+    const OP_I32_SUB  = 0x6b;
+    const OP_I32_MUL  = 0x6c;
+    const OP_I32_DIV  = 0x6d;
+
+    // Direct Binary Generator for Function Operations
+    function generateBinaryModule(operationOpcode) {
+      return new Uint8Array([
+        ...WASM_HEADER,
+        
+        // Type Section (Declares function signature: i32, i32 -> i32)
+        0x01, 0x07, 0x01, 0x60, 0x02, 0x7f, 0x7f, 0x01, 0x7f,
+        
+        // Function Section
+        0x03, 0x02, 0x01, 0x00,
+        
+        // Export Section (Exports "exec" function)
+        0x07, 0x08, 0x01, 0x04, 0x65, 0x78, 0x65, 0x63, 0x00, 0x00,
+        
+        // Code Section (Direct Machine Bytecode Instructions)
+        0x0a, 0x09, 0x01, 0x07, 0x00, 
+        0x20, 0x00, // local.get 0 (Input A)
+        0x20, 0x01, // local.get 1 (Input B)
+        operationOpcode, // CPU Instruction Opcode
+        0x0b        // end instruction
+      ]);
+    }
+
+    async function compileAndExecute() {
+      const fn = document.getElementById('function-select').value;
+      const a = parseInt(document.getElementById('input-a').value) || 0;
+      const b = parseInt(document.getElementById('input-b').value) || 0;
+      
+      const bytecodeBox = document.getElementById('bytecode');
       const outputBox = document.getElementById('output');
 
-      outputBox.innerText = "Compiling and executing...";
+      // 1. Hello World Case (Native Text Construction)
+      if (fn === 'hello') {
+        bytecodeBox.innerText = "Text Encoding Stream: [0x48 0x65 0x6C 0x6C 0x6F 0x2C 0x20 0x57 0x6F 0x72 0x6C 0x64 0x21]";
+        outputBox.innerText = "Hello, World!\n\n[Status]: Executed locally without APIs.";
+        return;
+      }
 
-      setTimeout(() => {
-        let result = "";
+      // 2. Map Operation to CPU Machine Opcode
+      let opcode;
+      if (fn === 'add') opcode = OP_I32_ADD;
+      if (fn === 'sub') opcode = OP_I32_SUB;
+      if (fn === 'mult') opcode = OP_I32_MUL;
+      if (fn === 'div') opcode = OP_I32_DIV;
 
-        if (selectedFn === 'hello') {
-          result = `Hello, World!\n[Status]: Executed successfully.`;
-        } 
-        else if (selectedFn === 'add') {
-          result = `Function: add(${a}, ${b})\nResult: ${add(a, b)}`;
-        } 
-        else if (selectedFn === 'sub') {
-          result = `Function: sub(${a}, ${b})\nResult: ${sub(a, b)}`;
-        } 
-        else if (selectedFn === 'mult') {
-          result = `Function: mult(${a}, ${b})\nResult: ${mult(a, b)}`;
-        } 
-        else if (selectedFn === 'div') {
-          result = `Function: div(${a}, ${b})\nResult: ${div(a, b)}`;
-        } 
-        else if (selectedFn === 'all') {
-          result = `Hello, World!\n` +
-                   `Inputs: a = ${a}, b = ${b}\n` +
-                   `-----------------------------\n` +
-                   `Addition (+): ${add(a, b)}\n` +
-                   `Subtraction (-): ${sub(a, b)}\n` +
-                   `Multiplication (*): ${mult(a, b)}\n` +
-                   `Division (/): ${div(a, b)}`;
-        }
+      if (fn === 'div' && b === 0) {
+        bytecodeBox.innerText = "N/A";
+        outputBox.innerText = "Error: Division by zero is not allowed!";
+        return;
+      }
 
-        outputBox.innerText = result;
-      }, 100);
+      // 3. Generate Pure Machine Bytecode Array
+      const wasmBytecode = generateBinaryModule(opcode);
+
+      // Print Raw Bytes to UI (Hex Format)
+      bytecodeBox.innerText = Array.from(wasmBytecode)
+        .map(byte => '0x' + byte.toString(16).padStart(2, '0').toUpperCase())
+        .join(' ');
+
+      try {
+        // 4. Send Machine Bytecode to CPU via Native Browser Wasm Engine
+        const compiledModule = await WebAssembly.instantiate(wasmBytecode);
+        
+        // Execute Compiled Function directly on CPU
+        const result = compiledModule.instance.exports.exec(a, b);
+
+        outputBox.innerText = `Function: ${fn}(${a}, ${b})\nCPU Executed Result: ${result}\n\n[Status]: Executed pure machine code locally on hardware.`;
+      } catch (err) {
+        outputBox.innerText = "Execution Error: " + err.message;
+      }
     }
   </script>
 

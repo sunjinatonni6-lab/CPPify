@@ -38,12 +38,12 @@
       </div>
       <div>
         <label>Inputs / Parameters:</label>
-        <input type="text" id="cmd-args" value="Hello, World!" placeholder="e.g. Hello, World! or 20 5">
+        <input type="text" id="cmd-args" value="Pure Client" placeholder="e.g. Pure Client or 20 5">
       </div>
     </div>
     
     <label>Source Code Representation:</label>
-    <textarea id="source">print Hello, World!</textarea>
+    <textarea id="source">print Pure Client</textarea>
     
     <button onclick="runCompiler()">Compile to Machine Code & Execute</button>
   </div>
@@ -71,8 +71,8 @@
       const sourceBox = document.getElementById('source');
 
       if (type === 'print') {
-        argsInput.value = "Hello, World!";
-        sourceBox.value = "print Hello, World!";
+        argsInput.value = "Pure Client";
+        sourceBox.value = "print Pure Client";
       } else {
         argsInput.value = "20 5";
         sourceBox.value = `${type} 20 5`;
@@ -84,18 +84,15 @@
       document.getElementById('source').value = `${type} ${e.target.value}`;
     });
 
-    document.getElementById('cmd-select').addEventListener('change', (e) => {
-      updateTemplate();
-    });
-
     // =========================================================================
-    // STAGE 1: ROBUST LEXER (TOKENIZER)
+    // STAGE 1: LEXER
     // =========================================================================
     function lexer(sourceCode) {
       let code = sourceCode.trim();
       if (!code) return [];
 
-      if (code.startsWith('"') || code.startsWith('(') || (!code.startsWith('print') && !code.startsWith('add') && !code.startsWith('sub') && !code.startsWith('mult') && !code.startsWith('div'))) {
+      if (code.startsWith('"') || code.startsWith('(') || 
+         (!code.startsWith('print') && !code.startsWith('add') && !code.startsWith('sub') && !code.startsWith('mult') && !code.startsWith('div'))) {
         code = code.replace(/^[("']+|[)"']+$]/g, '').trim();
         return ['print', code];
       }
@@ -113,70 +110,7 @@
       return [command, ...rest.split(/\s+/).filter(Boolean)];
     }
 
-    // =========================================================================
-    // STAGE 2: CODE GENERATOR (WASM BINARY MACHINE CODE)
-    // =========================================================================
-    function compileToMachineCode(tokens) {
-      if (tokens.length === 0) throw new Error("Empty source code.");
-      const command = tokens[0];
-      const WASM_MAGIC = [0x00, 0x61, 0x73, 0x6d];
-      const WASM_VERSION = [0x01, 0x00, 0x00, 0x00];
-
-      if (command === "print") {
-        const textStr = tokens[1] || "";
-        const textBytes = Array.from(new TextEncoder().encode(textStr));
-
-        const typeSection = [0x01, 0x04, 0x01, 0x60, 0x00, 0x00];
-        const importSection = [0x02, 0x0b, 0x01, 0x02, 0x65, 0x6e, 0x76, 0x06, 0x6d, 0x65, 0x6d, 0x6f, 0x72, 0x79, 0x02, 0x00, 0x01];
-        const funcSection = [0x03, 0x02, 0x01, 0x00];
-        const exportSection = [0x07, 0x07, 0x01, 0x03, 0x72, 0x75, 0x6e, 0x00, 0x00];
-        const codeSection = [0x0a, 0x04, 0x01, 0x02, 0x00, 0x0b];
-        
-        // Correct payload and LEB128 sizing for data segment contents
-        const lenEncoded = encodeLeb128(textBytes.length);
-        const dataSegment = [
-          0x00,               // Memory index 0
-          0x41, 0x00, 0x0b,   // i32.const 0, end (offset expression)
-          ...lenEncoded,      // Vector length of bytes
-          ...textBytes        // Actual character bytes
-        ];
-        
-        const dataSectionPayload = [
-          0x01,               // Segment count: 1
-          ...dataSegment
-        ];
-        
-        const dataSection = [
-          0x0b,               // Section ID 11 (Data section)
-          ...encodeLeb128(dataSectionPayload.length),
-          ...dataSectionPayload
-        ];
-
-        const binaryBytes = new Uint8Array([
-          ...WASM_MAGIC, ...WASM_VERSION,
-          ...typeSection, ...importSection, ...funcSection, ...exportSection, ...codeSection, ...dataSection
-        ]);
-        return { type: "print", binaryBytes, length: textBytes.length };
-      }
-
-      const opMap = { add: 0x6a, sub: 0x6b, mult: 0x6c, div: 0x6d };
-      if (opMap[command]) {
-        const a = parseInt(tokens[1], 10) || 0;
-        const b = parseInt(tokens[2], 10) || 0;
-        const opcode = opMap[command];
-
-        const typeSection = [0x01, 0x07, 0x01, 0x60, 0x02, 0x7f, 0x7f, 0x01, 0x7f];
-        const funcSection = [0x03, 0x02, 0x01, 0x00];
-        const exportSection = [0x07, 0x07, 0x01, 0x03, 0x72, 0x75, 0x6e, 0x00, 0x00];
-        const codeSection = [0x0a, 0x09, 0x01, 0x07, 0x00, 0x20, 0x00, 0x20, 0x01, opcode, 0x0b];
-
-        const binaryBytes = new Uint8Array([...WASM_MAGIC, ...WASM_VERSION, ...typeSection, ...funcSection, ...exportSection, ...codeSection]);
-        return { type: "math", binaryBytes, a, b, command };
-      }
-
-      throw new Error(`Unknown instruction: "${command}"`);
-    }
-
+    // LEB128 Unsigned Encoder
     function encodeLeb128(value) {
       const bytes = [];
       do {
@@ -188,8 +122,65 @@
       return bytes;
     }
 
+    // Helper to create valid WASM Section
+    function makeSection(id, payload) {
+      return [id, ...encodeLeb128(payload.length), ...payload];
+    }
+
     // =========================================================================
-    // STAGE 3: EXECUTION CONTROLLER
+    // STAGE 2: WASM BINARY CODE GENERATOR
+    // =========================================================================
+    function compileToMachineCode(tokens) {
+      if (tokens.length === 0) throw new Error("Empty source code.");
+      const command = tokens[0];
+      const WASM_MAGIC = [0x00, 0x61, 0x73, 0x6d, 0x01, 0x00, 0x00, 0x00];
+
+      if (command === "print") {
+        const textStr = tokens[1] || "";
+        const textBytes = Array.from(new TextEncoder().encode(textStr));
+
+        const typeSec = makeSection(1, [0x01, 0x60, 0x00, 0x00]); // () -> ()
+        const importSec = makeSection(2, [0x01, 0x03, 0x65, 0x6e, 0x76, 0x06, 0x6d, 0x65, 0x6d, 0x6f, 0x72, 0x79, 0x02, 0x00, 0x01]);
+        const funcSec = makeSection(3, [0x01, 0x00]);
+        const exportSec = makeSection(7, [0x01, 0x03, 0x72, 0x75, 0x6e, 0x00, 0x00]);
+        const codeSec = makeSection(10, [0x01, 0x02, 0x00, 0x0b]); // empty func
+        
+        // Data section construction with precise segment byte offsets
+        const dataSegment = [
+          0x00,             // memory index 0
+          0x41, 0x00, 0x0b, // offset 0
+          ...encodeLeb128(textBytes.length),
+          ...textBytes
+        ];
+        const dataSec = makeSection(11, [0x01, ...dataSegment]);
+
+        const binaryBytes = new Uint8Array([
+          ...WASM_MAGIC, ...typeSec, ...importSec, ...funcSec, ...exportSec, ...codeSec, ...dataSec
+        ]);
+        
+        return { type: "print", binaryBytes, length: textBytes.length };
+      }
+
+      const opMap = { add: 0x6a, sub: 0x6b, mult: 0x6c, div: 0x6d };
+      if (opMap[command]) {
+        const a = parseInt(tokens[1], 10) || 0;
+        const b = parseInt(tokens[2], 10) || 0;
+        const opcode = opMap[command];
+
+        const typeSec = makeSection(1, [0x01, 0x60, 0x02, 0x7f, 0x7f, 0x01, 0x7f]);
+        const funcSec = makeSection(3, [0x01, 0x00]);
+        const exportSec = makeSection(7, [0x01, 0x03, 0x72, 0x75, 0x6e, 0x00, 0x00]);
+        const codeSec = makeSection(10, [0x01, 0x07, 0x00, 0x20, 0x00, 0x20, 0x01, opcode, 0x0b]);
+
+        const binaryBytes = new Uint8Array([...WASM_MAGIC, ...typeSec, ...funcSec, ...exportSec, ...codeSec]);
+        return { type: "math", binaryBytes, a, b, command };
+      }
+
+      throw new Error(`Unknown instruction: "${command}"`);
+    }
+
+    // =========================================================================
+    // STAGE 3: EXECUTION ENGINE
     // =========================================================================
     async function runCompiler() {
       const sourceCode = document.getElementById('source').value;
@@ -213,7 +204,7 @@
           module.instance.exports.run();
           const buffer = new Uint8Array(memory.buffer, 0, compiled.length);
           const printed = new TextDecoder().decode(buffer);
-          cpuOutput.innerText = `[stdout]: ${printed}\n\n[Status]: Stored in WASM memory & executed on CPU.`;
+          cpuOutput.innerText = `[stdout]: ${printed}\n\n[Status]: Executed in WebAssembly memory without errors!`;
         } else {
           const module = await WebAssembly.instantiate(compiled.binaryBytes);
           const result = module.instance.exports.run(compiled.a, compiled.b);

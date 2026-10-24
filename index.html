@@ -65,7 +65,6 @@
   </div>
 
   <script>
-    // Update input box templates dynamically based on selection
     function updateTemplate() {
       const type = document.getElementById('cmd-select').value;
       const argsInput = document.getElementById('cmd-args');
@@ -80,7 +79,6 @@
       }
     }
 
-    // Synchronize inputs
     document.getElementById('cmd-args').addEventListener('input', (e) => {
       const type = document.getElementById('cmd-select').value;
       document.getElementById('source').value = `${type} ${e.target.value}`;
@@ -91,16 +89,30 @@
     });
 
     // =========================================================================
-    // STAGE 1: LEXER (TOKENIZER)
+    // STAGE 1: ROBUST LEXER (TOKENIZER)
     // =========================================================================
     function lexer(sourceCode) {
-      const code = sourceCode.trim();
+      let code = sourceCode.trim();
       if (!code) return [];
+
+      // If the code doesn't start with a known command, or starts with quotes/parentheses, 
+      // automatically treat it as an implicit print instruction and clean wrapper symbols.
+      if (code.startsWith('"') || code.startsWith('(') || (!code.startsWith('print') && !code.startsWith('add') && !code.startsWith('sub') && !code.startsWith('mult') && !code.startsWith('div'))) {
+        code = code.replace(/^[("']+|[)"']+$]/g, '').trim();
+        return ['print', code];
+      }
+
       const spaceIdx = code.indexOf(' ');
       if (spaceIdx === -1) return [code];
       const command = code.substring(0, spaceIdx).trim();
-      const rest = code.substring(spaceIdx + 1).trim();
-      return command === 'print' ? ['print', rest] : [command, ...rest.split(/\s+/).filter(Boolean)];
+      let rest = code.substring(spaceIdx + 1).trim();
+      
+      if (command === 'print') {
+        rest = rest.replace(/^[("']+|[)"']+$]/g, '').trim();
+        return ['print', rest];
+      }
+      
+      return [command, ...rest.split(/\s+/).filter(Boolean)];
     }
 
     // =========================================================================

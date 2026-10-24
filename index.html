@@ -3,138 +3,149 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Native Pure Compiler (No APIs, No Libraries)</title>
+  <title>From-Scratch Custom Compiler</title>
   <style>
-    body { font-family: monospace; background: #0f172a; color: #f8fafc; padding: 20px; max-width: 750px; margin: auto; }
-    h2 { color: #38bdf8; border-bottom: 1px solid #334155; padding-bottom: 10px; }
-    .card { background: #1e293b; border: 1px solid #334155; padding: 20px; border-radius: 8px; margin-bottom: 15px; }
-    label { display: block; margin-bottom: 6px; font-weight: bold; color: #94a3b8; font-size: 12px; text-transform: uppercase; }
-    input, select { width: 100%; background: #0f172a; color: #38bdf8; border: 1px solid #475569; padding: 10px; font-size: 14px; border-radius: 6px; box-sizing: border-box; margin-bottom: 15px; font-family: inherit; }
-    button { background: #10b981; color: #fff; border: none; padding: 12px 20px; font-size: 14px; font-weight: bold; cursor: pointer; border-radius: 6px; width: 100%; transition: 0.2s; }
+    body { font-family: monospace; background: #0f172a; color: #f8fafc; padding: 20px; max-width: 800px; margin: auto; }
+    h2 { color: #38bdf8; border-bottom: 1px solid #334155; padding-bottom: 8px; }
+    .card { background: #1e293b; border: 1px solid #334155; padding: 15px; border-radius: 8px; margin-bottom: 15px; }
+    label { display: block; margin-bottom: 5px; font-weight: bold; color: #94a3b8; font-size: 11px; text-transform: uppercase; }
+    textarea, input { width: 100%; background: #0f172a; color: #38bdf8; border: 1px solid #475569; padding: 10px; font-size: 13px; border-radius: 6px; box-sizing: border-box; font-family: inherit; }
+    textarea { height: 130px; resize: vertical; }
+    input { height: 38px; margin-bottom: 10px; }
+    button { background: #10b981; color: #fff; border: none; padding: 12px 20px; font-size: 14px; font-weight: bold; cursor: pointer; border-radius: 6px; width: 100%; }
     button:hover { background: #059669; }
-    pre { background: #020617; border: 1px solid #1e293b; padding: 15px; border-radius: 6px; color: #4ade80; white-space: pre-wrap; font-size: 13px; min-height: 80px; }
-    .bytes { color: #f59e0b; word-break: break-all; }
+    pre { background: #020617; border: 1px solid #1e293b; padding: 12px; border-radius: 6px; color: #4ade80; white-space: pre-wrap; font-size: 12px; margin: 0; }
+    .tokens { color: #f59e0b; }
+    .bytecode { color: #a78bfa; }
   </style>
 </head>
 <body>
 
-  <h2>Native Pure Compiler (Zero APIs & Zero Libraries)</h2>
+  <h2>From-Scratch Custom Compiler (Lexer -> Parser -> Code Gen -> CPU)</h2>
 
   <div class="card">
-    <label>1. Select Operation:</label>
-    <select id="function-select">
-      <option value="hello">Hello World Print</option>
-      <option value="add">Addition (+)</option>
-      <option value="sub">Subtraction (-)</option>
-      <option value="mult">Multiplication (*)</option>
-      <option value="div">Division (/)</option>
-    </select>
-
-    <div style="display: flex; gap: 10px;">
-      <div style="flex: 1;">
-        <label>Input A (num1):</label>
-        <input type="number" id="input-a" value="20">
-      </div>
-      <div style="flex: 1;">
-        <label>Input B (num2):</label>
-        <input type="number" id="input-b" value="5">
-      </div>
-    </div>
-
-    <button onclick="compileAndExecute()">Compile to Machine Code & Execute</button>
+    <label>1. Source Code (Our Custom Language syntax: <code>calc op a b</code>):</label>
+    <textarea id="source">calc add 25 15</textarea>
+    <button onclick="runCompiler()">Compile & Execute</button>
   </div>
 
   <div class="card">
-    <label>Generated Machine Code (Raw WASM Bytecode):</label>
-    <pre id="bytecode" class="bytes">Machine bytecode will appear here...</pre>
+    <label>Stage 1: Lexer (Tokens):</label>
+    <pre id="lex-output" class="tokens">Waiting for compilation...</pre>
   </div>
 
   <div class="card">
-    <label>CPU Hardware Output:</label>
-    <pre id="output">Click button to compile and execute...</pre>
+    <label>Stage 2: Code Generator (Raw WebAssembly Machine Code Hex):</label>
+    <pre id="wasm-output" class="bytecode">Waiting for compilation...</pre>
+  </div>
+
+  <div class="card">
+    <label>Stage 3: CPU Hardware Execution Output:</label>
+    <pre id="cpu-output">Waiting for execution...</pre>
   </div>
 
   <script>
     // =========================================================================
-    // NATIVE WASM BYTECODE COMPILER (NO LIBRARIES, NO APIS, NO EVAL)
+    // STAGE 1: LEXER (TOKENIZER)
+    // Breaks raw source code text string into structured atomic tokens.
     // =========================================================================
-
-    // Binary WebAssembly Instructions (Opcodes)
-    const WASM_HEADER = [0x00, 0x61, 0x73, 0x6d, 0x01, 0x00, 0x00, 0x00];
-    const OP_I32_ADD  = 0x6a;
-    const OP_I32_SUB  = 0x6b;
-    const OP_I32_MUL  = 0x6c;
-    const OP_I32_DIV  = 0x6d;
-
-    // Direct Binary Generator for Function Operations
-    function generateBinaryModule(operationOpcode) {
-      return new Uint8Array([
-        ...WASM_HEADER,
-        
-        // Type Section (Declares function signature: i32, i32 -> i32)
-        0x01, 0x07, 0x01, 0x60, 0x02, 0x7f, 0x7f, 0x01, 0x7f,
-        
-        // Function Section
-        0x03, 0x02, 0x01, 0x00,
-        
-        // Export Section (Exports "exec" function)
-        0x07, 0x08, 0x01, 0x04, 0x65, 0x78, 0x65, 0x63, 0x00, 0x00,
-        
-        // Code Section (Direct Machine Bytecode Instructions)
-        0x0a, 0x09, 0x01, 0x07, 0x00, 
-        0x20, 0x00, // local.get 0 (Input A)
-        0x20, 0x01, // local.get 1 (Input B)
-        operationOpcode, // CPU Instruction Opcode
-        0x0b        // end instruction
-      ]);
+    function lexer(inputCode) {
+      const regex = /[^\s]+/g;
+      const tokens = [];
+      let match;
+      while ((match = regex.exec(inputCode)) !== null) {
+        tokens.push(match[0]);
+      }
+      return tokens;
     }
 
-    async function compileAndExecute() {
-      const fn = document.getElementById('function-select').value;
-      const a = parseInt(document.getElementById('input-a').value) || 0;
-      const b = parseInt(document.getElementById('input-b').value) || 0;
-      
-      const bytecodeBox = document.getElementById('bytecode');
-      const outputBox = document.getElementById('output');
-
-      // 1. Hello World Case (Native Text Construction)
-      if (fn === 'hello') {
-        bytecodeBox.innerText = "Text Encoding Stream: [0x48 0x65 0x6C 0x6C 0x6F 0x2C 0x20 0x57 0x6F 0x72 0x6C 0x64 0x21]";
-        outputBox.innerText = "Hello, World!\n\n[Status]: Executed locally without APIs.";
-        return;
+    // =========================================================================
+    // STAGE 2: PARSER & CODE GENERATOR (COMPILER BACKEND)
+    // Translates tokens into abstract syntax and builds actual Wasm binary machine code.
+    // =========================================================================
+    function compileToMachineCode(tokens) {
+      if (tokens.length < 4 || tokens[0] !== "calc") {
+        throw new Error("Syntax Error: Expected format -> calc [add|sub|mult|div] [num1] [num2]");
       }
 
-      // 2. Map Operation to CPU Machine Opcode
+      const operation = tokens[1];
+      const a = parseInt(tokens[2], 10);
+      const b = parseInt(tokens[3], 10);
+
+      // Map language operations to WebAssembly CPU Instruction Opcodes
       let opcode;
-      if (fn === 'add') opcode = OP_I32_ADD;
-      if (fn === 'sub') opcode = OP_I32_SUB;
-      if (fn === 'mult') opcode = OP_I32_MUL;
-      if (fn === 'div') opcode = OP_I32_DIV;
+      if (operation === "add") opcode = 0x6a; // i32.add
+      else if (operation === "sub") opcode = 0x6b; // i32.sub
+      else if (operation === "mult") opcode = 0x6c; // i32.mul
+      else if (operation === "div") opcode = 0x6d; // i32.div_s
+      else throw new Error(`Unknown operator: ${operation}`);
 
-      if (fn === 'div' && b === 0) {
-        bytecodeBox.innerText = "N/A";
-        outputBox.innerText = "Error: Division by zero is not allowed!";
-        return;
-      }
+      // WebAssembly Binary Machine Code Structure Headers
+      const WASM_MAGIC = [0x00, 0x61, 0x73, 0x6d];
+      const WASM_VERSION = [0x01, 0x00, 0x00, 0x00];
 
-      // 3. Generate Pure Machine Bytecode Array
-      const wasmBytecode = generateBinaryModule(opcode);
+      // Type section: function signature (i32, i32 -> i32)
+      const typeSection = [0x01, 0x07, 0x01, 0x60, 0x02, 0x7f, 0x7f, 0x01, 0x7f];
+      // Function section
+      const funcSection = [0x03, 0x02, 0x01, 0x00];
+      // Export section: exporting function as "run"
+      const exportSection = [0x07, 0x07, 0x01, 0x03, 0x72, 0x75, 0x6e, 0x00, 0x00];
+      
+      // Code section: compiled machine instructions 
+      // (Loads params into stack, executes instruction opcode, returns result)
+      const codeSection = [
+        0x0a, 0x09, 0x01, 0x07, 0x00,
+        0x20, 0x00, // local.get 0 (first parameter 'a')
+        0x20, 0x01, // local.get 1 (second parameter 'b')
+        opcode,     // CPU Arithmetic Instruction
+        0x0b        // end
+      ];
 
-      // Print Raw Bytes to UI (Hex Format)
-      bytecodeBox.innerText = Array.from(wasmBytecode)
-        .map(byte => '0x' + byte.toString(16).padStart(2, '0').toUpperCase())
-        .join(' ');
+      // Concatenate sections into final executable binary buffer array
+      const binaryBytes = new Uint8Array([
+        ...WASM_MAGIC,
+        ...WASM_VERSION,
+        ...typeSection,
+        ...funcSection,
+        ...exportSection,
+        ...codeSection
+      ]);
+
+      return { binaryBytes, a, b, operation };
+    }
+
+    // =========================================================================
+    // DRIVER / COMPILER PIPELINE CONTROLLER
+    // =========================================================================
+    async function runCompiler() {
+      const sourceCode = document.getElementById('source').value;
+      const lexOutput = document.getElementById('lex-output');
+      const wasmOutput = document.getElementById('wasm-output');
+      const cpuOutput = document.getElementById('cpu-output');
 
       try {
-        // 4. Send Machine Bytecode to CPU via Native Browser Wasm Engine
-        const compiledModule = await WebAssembly.instantiate(wasmBytecode);
-        
-        // Execute Compiled Function directly on CPU
-        const result = compiledModule.instance.exports.exec(a, b);
+        // Step 1: Lexical Analysis
+        const tokens = lexer(sourceCode);
+        lexOutput.innerText = JSON.stringify(tokens, null, 2);
 
-        outputBox.innerText = `Function: ${fn}(${a}, ${b})\nCPU Executed Result: ${result}\n\n[Status]: Executed pure machine code locally on hardware.`;
+        // Step 2: Parsing & Code Generation (Compilation)
+        const { binaryBytes, a, b, operation } = compileToMachineCode(tokens);
+        
+        const hexString = Array.from(binaryBytes)
+          .map(b => '0x' + b.toString(16).padStart(2, '0').toUpperCase())
+          .join(' ');
+        wasmOutput.innerText = hexString;
+
+        // Step 3: Execution of compiled machine code on CPU via WebAssembly engine
+        const module = await WebAssembly.instantiate(binaryBytes);
+        const result = module.instance.exports.run(a, b);
+
+        cpuOutput.innerText = `Operation: ${operation}(${a}, ${b})\nCompiled Result Computed by CPU: ${result}\n\n[Status]: Compilation & execution successful!`;
+
       } catch (err) {
-        outputBox.innerText = "Execution Error: " + err.message;
+        lexOutput.innerText = "Compilation Failed";
+        wasmOutput.innerText = "N/A";
+        cpuOutput.innerText = err.message;
       }
     }
   </script>

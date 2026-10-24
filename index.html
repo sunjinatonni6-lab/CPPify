@@ -95,8 +95,6 @@
       let code = sourceCode.trim();
       if (!code) return [];
 
-      // If the code doesn't start with a known command, or starts with quotes/parentheses, 
-      // automatically treat it as an implicit print instruction and clean wrapper symbols.
       if (code.startsWith('"') || code.startsWith('(') || (!code.startsWith('print') && !code.startsWith('add') && !code.startsWith('sub') && !code.startsWith('mult') && !code.startsWith('div'))) {
         code = code.replace(/^[("']+|[)"']+$]/g, '').trim();
         return ['print', code];
@@ -134,9 +132,24 @@
         const exportSection = [0x07, 0x07, 0x01, 0x03, 0x72, 0x75, 0x6e, 0x00, 0x00];
         const codeSection = [0x0a, 0x04, 0x01, 0x02, 0x00, 0x0b];
         
+        // Correct payload and LEB128 sizing for data segment contents
+        const lenEncoded = encodeLeb128(textBytes.length);
+        const dataSegment = [
+          0x00,               // Memory index 0
+          0x41, 0x00, 0x0b,   // i32.const 0, end (offset expression)
+          ...lenEncoded,      // Vector length of bytes
+          ...textBytes        // Actual character bytes
+        ];
+        
+        const dataSectionPayload = [
+          0x01,               // Segment count: 1
+          ...dataSegment
+        ];
+        
         const dataSection = [
-          0x0b, ...encodeLeb128(1 + 3 + textBytes.length), 0x01, 0x00,
-          0x41, 0x00, 0x0b, ...encodeLeb128(textBytes.length), ...textBytes
+          0x0b,               // Section ID 11 (Data section)
+          ...encodeLeb128(dataSectionPayload.length),
+          ...dataSectionPayload
         ];
 
         const binaryBytes = new Uint8Array([

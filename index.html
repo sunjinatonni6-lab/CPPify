@@ -3,119 +3,168 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>From-Scratch Custom Compiler</title>
+  <title>Pure Client-Side WebAssembly Compiler</title>
   <style>
-    body { font-family: monospace; background: #0f172a; color: #f8fafc; padding: 20px; max-width: 800px; margin: auto; }
+    body { font-family: monospace; background: #0f172a; color: #f8fafc; padding: 20px; max-width: 850px; margin: auto; }
     h2 { color: #38bdf8; border-bottom: 1px solid #334155; padding-bottom: 8px; }
     .card { background: #1e293b; border: 1px solid #334155; padding: 15px; border-radius: 8px; margin-bottom: 15px; }
-    label { display: block; margin-bottom: 5px; font-weight: bold; color: #94a3b8; font-size: 11px; text-transform: uppercase; }
-    textarea, input { width: 100%; background: #0f172a; color: #38bdf8; border: 1px solid #475569; padding: 10px; font-size: 13px; border-radius: 6px; box-sizing: border-box; font-family: inherit; }
-    textarea { height: 130px; resize: vertical; }
-    input { height: 38px; margin-bottom: 10px; }
-    button { background: #10b981; color: #fff; border: none; padding: 12px 20px; font-size: 14px; font-weight: bold; cursor: pointer; border-radius: 6px; width: 100%; }
+    label { display: block; margin-bottom: 6px; font-weight: bold; color: #94a3b8; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; }
+    textarea, select, input { width: 100%; background: #0f172a; color: #38bdf8; border: 1px solid #475569; padding: 10px; font-size: 13px; border-radius: 6px; box-sizing: border-box; font-family: inherit; margin-bottom: 10px; }
+    textarea { height: 100px; resize: vertical; }
+    button { background: #10b981; color: #fff; border: none; padding: 12px 20px; font-size: 14px; font-weight: bold; cursor: pointer; border-radius: 6px; width: 100%; transition: 0.2s; }
     button:hover { background: #059669; }
     pre { background: #020617; border: 1px solid #1e293b; padding: 12px; border-radius: 6px; color: #4ade80; white-space: pre-wrap; font-size: 12px; margin: 0; }
     .tokens { color: #f59e0b; }
-    .bytecode { color: #a78bfa; }
+    .bytecode { color: #a78bfa; word-break: break-all; }
+    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
   </style>
 </head>
 <body>
 
-  <h2>From-Scratch Custom Compiler (Lexer -> Parser -> Code Gen -> CPU)</h2>
+  <h2>Client-Side WebAssembly Compiler</h2>
 
   <div class="card">
-    <label>1. Source Code (Our Custom Language syntax: <code>calc op a b</code>):</label>
-    <textarea id="source">calc add 25 15</textarea>
-    <button onclick="runCompiler()">Compile & Execute</button>
+    <label>1. Select Operation & Inputs or Type Code:</label>
+    <div class="grid">
+      <div>
+        <label>Function / Command:</label>
+        <select id="cmd-select" onchange="updateTemplate()">
+          <option value="print">Print String (Hello, World!)</option>
+          <option value="add">Addition (a + b)</option>
+          <option value="sub">Subtraction (a - b)</option>
+          <option value="mult">Multiplication (a * b)</option>
+          <option value="div">Division (a / b)</option>
+        </select>
+      </div>
+      <div>
+        <label>Inputs / Parameters:</label>
+        <input type="text" id="cmd-args" value="Hello, World!" placeholder="e.g. Hello, World! or 20 5">
+      </div>
+    </div>
+    
+    <label>Source Code Representation:</label>
+    <textarea id="source">print Hello, World!</textarea>
+    
+    <button onclick="runCompiler()">Compile to Machine Code & Execute</button>
   </div>
 
-  <div class="card">
-    <label>Stage 1: Lexer (Tokens):</label>
-    <pre id="lex-output" class="tokens">Waiting for compilation...</pre>
-  </div>
-
-  <div class="card">
-    <label>Stage 2: Code Generator (Raw WebAssembly Machine Code Hex):</label>
-    <pre id="wasm-output" class="bytecode">Waiting for compilation...</pre>
+  <div class="grid">
+    <div class="card">
+      <label>Stage 1: Lexer Tokens:</label>
+      <pre id="lex-output" class="tokens">Awaiting compilation...</pre>
+    </div>
+    <div class="card">
+      <label>Stage 2: Machine Bytecode (Hex):</label>
+      <pre id="wasm-output" class="bytecode">Awaiting compilation...</pre>
+    </div>
   </div>
 
   <div class="card">
     <label>Stage 3: CPU Hardware Execution Output:</label>
-    <pre id="cpu-output">Waiting for execution...</pre>
+    <pre id="cpu-output">Click button to execute...</pre>
   </div>
 
   <script>
+    // Update input box templates dynamically based on selection
+    function updateTemplate() {
+      const type = document.getElementById('cmd-select').value;
+      const argsInput = document.getElementById('cmd-args');
+      const sourceBox = document.getElementById('source');
+
+      if (type === 'print') {
+        argsInput.value = "Hello, World!";
+        sourceBox.value = "print Hello, World!";
+      } else {
+        argsInput.value = "20 5";
+        sourceBox.value = `${type} 20 5`;
+      }
+    }
+
+    // Synchronize inputs
+    document.getElementById('cmd-args').addEventListener('input', (e) => {
+      const type = document.getElementById('cmd-select').value;
+      document.getElementById('source').value = `${type} ${e.target.value}`;
+    });
+
+    document.getElementById('cmd-select').addEventListener('change', (e) => {
+      updateTemplate();
+    });
+
     // =========================================================================
     // STAGE 1: LEXER (TOKENIZER)
-    // Breaks raw source code text string into structured atomic tokens.
     // =========================================================================
-    function lexer(inputCode) {
-      const regex = /[^\s]+/g;
-      const tokens = [];
-      let match;
-      while ((match = regex.exec(inputCode)) !== null) {
-        tokens.push(match[0]);
-      }
-      return tokens;
+    function lexer(sourceCode) {
+      const code = sourceCode.trim();
+      if (!code) return [];
+      const spaceIdx = code.indexOf(' ');
+      if (spaceIdx === -1) return [code];
+      const command = code.substring(0, spaceIdx).trim();
+      const rest = code.substring(spaceIdx + 1).trim();
+      return command === 'print' ? ['print', rest] : [command, ...rest.split(/\s+/).filter(Boolean)];
     }
 
     // =========================================================================
-    // STAGE 2: PARSER & CODE GENERATOR (COMPILER BACKEND)
-    // Translates tokens into abstract syntax and builds actual Wasm binary machine code.
+    // STAGE 2: CODE GENERATOR (WASM BINARY MACHINE CODE)
     // =========================================================================
     function compileToMachineCode(tokens) {
-      if (tokens.length < 4 || tokens[0] !== "calc") {
-        throw new Error("Syntax Error: Expected format -> calc [add|sub|mult|div] [num1] [num2]");
-      }
-
-      const operation = tokens[1];
-      const a = parseInt(tokens[2], 10);
-      const b = parseInt(tokens[3], 10);
-
-      // Map language operations to WebAssembly CPU Instruction Opcodes
-      let opcode;
-      if (operation === "add") opcode = 0x6a; // i32.add
-      else if (operation === "sub") opcode = 0x6b; // i32.sub
-      else if (operation === "mult") opcode = 0x6c; // i32.mul
-      else if (operation === "div") opcode = 0x6d; // i32.div_s
-      else throw new Error(`Unknown operator: ${operation}`);
-
-      // WebAssembly Binary Machine Code Structure Headers
+      if (tokens.length === 0) throw new Error("Empty source code.");
+      const command = tokens[0];
       const WASM_MAGIC = [0x00, 0x61, 0x73, 0x6d];
       const WASM_VERSION = [0x01, 0x00, 0x00, 0x00];
 
-      // Type section: function signature (i32, i32 -> i32)
-      const typeSection = [0x01, 0x07, 0x01, 0x60, 0x02, 0x7f, 0x7f, 0x01, 0x7f];
-      // Function section
-      const funcSection = [0x03, 0x02, 0x01, 0x00];
-      // Export section: exporting function as "run"
-      const exportSection = [0x07, 0x07, 0x01, 0x03, 0x72, 0x75, 0x6e, 0x00, 0x00];
-      
-      // Code section: compiled machine instructions 
-      // (Loads params into stack, executes instruction opcode, returns result)
-      const codeSection = [
-        0x0a, 0x09, 0x01, 0x07, 0x00,
-        0x20, 0x00, // local.get 0 (first parameter 'a')
-        0x20, 0x01, // local.get 1 (second parameter 'b')
-        opcode,     // CPU Arithmetic Instruction
-        0x0b        // end
-      ];
+      if (command === "print") {
+        const textStr = tokens[1] || "";
+        const textBytes = Array.from(new TextEncoder().encode(textStr));
 
-      // Concatenate sections into final executable binary buffer array
-      const binaryBytes = new Uint8Array([
-        ...WASM_MAGIC,
-        ...WASM_VERSION,
-        ...typeSection,
-        ...funcSection,
-        ...exportSection,
-        ...codeSection
-      ]);
+        const typeSection = [0x01, 0x04, 0x01, 0x60, 0x00, 0x00];
+        const importSection = [0x02, 0x0b, 0x01, 0x02, 0x65, 0x6e, 0x76, 0x06, 0x6d, 0x65, 0x6d, 0x6f, 0x72, 0x79, 0x02, 0x00, 0x01];
+        const funcSection = [0x03, 0x02, 0x01, 0x00];
+        const exportSection = [0x07, 0x07, 0x01, 0x03, 0x72, 0x75, 0x6e, 0x00, 0x00];
+        const codeSection = [0x0a, 0x04, 0x01, 0x02, 0x00, 0x0b];
+        
+        const dataSection = [
+          0x0b, ...encodeLeb128(1 + 3 + textBytes.length), 0x01, 0x00,
+          0x41, 0x00, 0x0b, ...encodeLeb128(textBytes.length), ...textBytes
+        ];
 
-      return { binaryBytes, a, b, operation };
+        const binaryBytes = new Uint8Array([
+          ...WASM_MAGIC, ...WASM_VERSION,
+          ...typeSection, ...importSection, ...funcSection, ...exportSection, ...codeSection, ...dataSection
+        ]);
+        return { type: "print", binaryBytes, length: textBytes.length };
+      }
+
+      const opMap = { add: 0x6a, sub: 0x6b, mult: 0x6c, div: 0x6d };
+      if (opMap[command]) {
+        const a = parseInt(tokens[1], 10) || 0;
+        const b = parseInt(tokens[2], 10) || 0;
+        const opcode = opMap[command];
+
+        const typeSection = [0x01, 0x07, 0x01, 0x60, 0x02, 0x7f, 0x7f, 0x01, 0x7f];
+        const funcSection = [0x03, 0x02, 0x01, 0x00];
+        const exportSection = [0x07, 0x07, 0x01, 0x03, 0x72, 0x75, 0x6e, 0x00, 0x00];
+        const codeSection = [0x0a, 0x09, 0x01, 0x07, 0x00, 0x20, 0x00, 0x20, 0x01, opcode, 0x0b];
+
+        const binaryBytes = new Uint8Array([...WASM_MAGIC, ...WASM_VERSION, ...typeSection, ...funcSection, ...exportSection, ...codeSection]);
+        return { type: "math", binaryBytes, a, b, command };
+      }
+
+      throw new Error(`Unknown instruction: "${command}"`);
+    }
+
+    function encodeLeb128(value) {
+      const bytes = [];
+      do {
+        let byte = value & 0x7f;
+        value >>= 7;
+        if (value !== 0) byte |= 0x80;
+        bytes.push(byte);
+      } while (value !== 0);
+      return bytes;
     }
 
     // =========================================================================
-    // DRIVER / COMPILER PIPELINE CONTROLLER
+    // STAGE 3: EXECUTION CONTROLLER
     // =========================================================================
     async function runCompiler() {
       const sourceCode = document.getElementById('source').value;
@@ -124,28 +173,31 @@
       const cpuOutput = document.getElementById('cpu-output');
 
       try {
-        // Step 1: Lexical Analysis
         const tokens = lexer(sourceCode);
         lexOutput.innerText = JSON.stringify(tokens, null, 2);
 
-        // Step 2: Parsing & Code Generation (Compilation)
-        const { binaryBytes, a, b, operation } = compileToMachineCode(tokens);
-        
-        const hexString = Array.from(binaryBytes)
+        const compiled = compileToMachineCode(tokens);
+        const hexString = Array.from(compiled.binaryBytes)
           .map(b => '0x' + b.toString(16).padStart(2, '0').toUpperCase())
           .join(' ');
         wasmOutput.innerText = hexString;
 
-        // Step 3: Execution of compiled machine code on CPU via WebAssembly engine
-        const module = await WebAssembly.instantiate(binaryBytes);
-        const result = module.instance.exports.run(a, b);
-
-        cpuOutput.innerText = `Operation: ${operation}(${a}, ${b})\nCompiled Result Computed by CPU: ${result}\n\n[Status]: Compilation & execution successful!`;
-
+        if (compiled.type === "print") {
+          const memory = new WebAssembly.Memory({ initial: 1 });
+          const module = await WebAssembly.instantiate(compiled.binaryBytes, { env: { memory } });
+          module.instance.exports.run();
+          const buffer = new Uint8Array(memory.buffer, 0, compiled.length);
+          const printed = new TextDecoder().decode(buffer);
+          cpuOutput.innerText = `[stdout]: ${printed}\n\n[Status]: Stored in WASM memory & executed on CPU.`;
+        } else {
+          const module = await WebAssembly.instantiate(compiled.binaryBytes);
+          const result = module.instance.exports.run(compiled.a, compiled.b);
+          cpuOutput.innerText = `[Result]: ${compiled.command}(${compiled.a}, ${compiled.b}) = ${result}\n\n[Status]: Executed directly on CPU registers.`;
+        }
       } catch (err) {
-        lexOutput.innerText = "Compilation Failed";
+        lexOutput.innerText = "Error";
         wasmOutput.innerText = "N/A";
-        cpuOutput.innerText = err.message;
+        cpuOutput.innerText = "Compilation/Execution Error: " + err.message;
       }
     }
   </script>

@@ -1,116 +1,532 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="h-full bg-slate-950">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Pure Client-Side WebAssembly Compiler</title>
+  <title>Cppify - WebAssembly C++ Compiler Studio</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- FontAwesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <!-- Inter & JetBrains Mono Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+  
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'sans-serif'],
+            mono: ['JetBrains Mono', 'monospace'],
+          },
+          colors: {
+            cyan: {
+              400: '#22d3ee',
+              500: '#06b6d4',
+              950: '#083344',
+            },
+            emerald: {
+              400: '#34d399',
+              500: '#10b981',
+              950: '#022c22',
+            }
+          },
+          animation: {
+            'glow-emerald': 'glowEmerald 2s ease-in-out infinite alternate',
+          },
+          keyframes: {
+            glowEmerald: {
+              '0%': { boxShadow: '0 0 5px rgba(16, 185, 129, 0.2)' },
+              '100%': { boxShadow: '0 0 20px rgba(16, 185, 129, 0.6)' },
+            }
+          }
+        }
+      }
+    }
+  </script>
   <style>
-    body { font-family: monospace; background: #0f172a; color: #f8fafc; padding: 20px; max-width: 850px; margin: auto; }
-    h2 { color: #38bdf8; border-bottom: 1px solid #334155; padding-bottom: 8px; }
-    .card { background: #1e293b; border: 1px solid #334155; padding: 15px; border-radius: 8px; margin-bottom: 15px; }
-    label { display: block; margin-bottom: 6px; font-weight: bold; color: #94a3b8; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; }
-    textarea, select, input { width: 100%; background: #0f172a; color: #38bdf8; border: 1px solid #475569; padding: 10px; font-size: 13px; border-radius: 6px; box-sizing: border-box; font-family: inherit; margin-bottom: 10px; }
-    textarea { height: 100px; resize: vertical; }
-    button { background: #10b981; color: #fff; border: none; padding: 12px 20px; font-size: 14px; font-weight: bold; cursor: pointer; border-radius: 6px; width: 100%; transition: 0.2s; }
-    button:hover { background: #059669; }
-    pre { background: #020617; border: 1px solid #1e293b; padding: 12px; border-radius: 6px; color: #4ade80; white-space: pre-wrap; font-size: 12px; margin: 0; }
-    .tokens { color: #f59e0b; }
-    .bytecode { color: #a78bfa; word-break: break-all; }
-    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
+    /* Custom scrollbars */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #020617;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #1e293b;
+      border-radius: 3px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #10b981;
+    }
+    .scanline {
+      background: linear-gradient(
+        to bottom,
+        rgba(255,255,255,0),
+        rgba(255,255,255,0) 50%,
+        rgba(16, 185, 129, 0.03) 50%,
+        rgba(16, 185, 129, 0.03)
+      );
+      background-size: 100% 4px;
+    }
   </style>
 </head>
-<body>
+<body class="h-full text-slate-200 font-sans flex flex-col bg-slate-950 overflow-hidden select-none">
 
-  <h2>Client-Side WebAssembly Compiler</h2>
+  <!-- TOP APP HEADER / NAVBAR -->
+  <header class="h-14 bg-slate-900/90 border-b border-slate-800/80 px-4 flex items-center justify-between z-20 backdrop-blur-md shrink-0">
+    <div class="flex items-center space-x-3">
+      <!-- Cppify Branding & Logo -->
+      <div class="w-9 h-9 rounded-xl bg-gradient-to-br from-emerald-400 via-cyan-500 to-blue-600 flex items-center justify-center text-slate-950 font-black text-xl shadow-lg shadow-emerald-500/20">
+        <i class="fa-solid fa-code"></i>
+      </div>
+      <div class="flex items-center space-x-2">
+        <h1 class="font-bold tracking-wider text-slate-100 text-lg font-mono">Cppify<span class="text-emerald-400">.wasm</span></h1>
+        <span class="px-2 py-0.5 text-[10px] uppercase tracking-widest font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 rounded-md">Pure Client Engine</span>
+      </div>
+    </div>
 
-  <div class="card">
-    <label>1. Select Operation & Inputs or Type Code:</label>
-    <div class="grid">
-      <div>
-        <label>Function / Command:</label>
-        <select id="cmd-select" onchange="updateTemplate()">
-          <option value="print">Print String (Hello, World!)</option>
-          <option value="add">Addition (a + b)</option>
-          <option value="sub">Subtraction (a - b)</option>
-          <option value="mult">Multiplication (a * b)</option>
-          <option value="div">Division (a / b)</option>
+    <!-- Quick Templates Selector Dropdown & Status Indicator -->
+    <div class="flex items-center space-x-3">
+      <div class="hidden sm:flex items-center space-x-2 bg-slate-950 px-3 py-1.5 rounded-lg border border-slate-800">
+        <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+        <span class="text-xs font-mono text-slate-300">Local CPU Ready</span>
+      </div>
+
+      <div class="relative">
+        <select id="template-select" onchange="loadSelectedTemplate()" class="bg-slate-800 hover:bg-slate-700 text-emerald-300 font-mono text-xs border border-slate-700/80 rounded-lg px-3 py-1.5 focus:outline-none focus:border-emerald-500 cursor-pointer transition">
+          <option value="hello">⚡ Template: Hello World</option>
+          <option value="add">➕ Template: Addition (i32)</option>
+          <option value="sub">➖ Template: Subtraction (i32)</option>
+          <option value="mult">✖️ Template: Multiplication (i32)</option>
+          <option value="div">➕ Template: Division (i32)</option>
+          <option value="complex">🔮 Template: Complex Buffer Print</option>
         </select>
       </div>
-      <div>
-        <label>Inputs / Parameters:</label>
-        <input type="text" id="cmd-args" value="Pure Client" placeholder="e.g. Pure Client or 20 5">
+
+      <!-- Action Buttons -->
+      <button onclick="copyWasmHex()" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-lg text-xs font-mono flex items-center space-x-1.5 transition active:scale-95">
+        <i class="fa-solid fa-copy text-cyan-400"></i>
+        <span class="hidden md:inline">Copy Hex</span>
+      </button>
+      <button onclick="downloadWasm()" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-lg text-xs font-mono flex items-center space-x-1.5 transition active:scale-95">
+        <i class="fa-solid fa-download text-emerald-400"></i>
+        <span class="hidden md:inline">Export .wasm</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- MAIN IDE WORKSPACE SPLIT LAYOUT -->
+  <div class="flex-1 flex flex-col lg:flex-row overflow-hidden relative">
+
+    <!-- LEFT COLUMN: CONTROLS & SOURCE EDITOR -->
+    <div class="w-full lg:w-[460px] bg-slate-900/50 border-r border-slate-800/80 flex flex-col shrink-0 overflow-y-auto">
+      
+      <!-- Interactive Controls Panel -->
+      <div class="p-4 border-b border-slate-800/80 space-y-3">
+        <div class="flex items-center justify-between">
+          <span class="text-xs font-semibold text-slate-400 uppercase tracking-wider font-mono flex items-center">
+            <i class="fa-solid fa-sliders text-emerald-400 mr-2"></i>Interactive Command Builder
+          </span>
+          <span class="text-[10px] text-slate-500 font-mono">Real-time AST Generator</span>
+        </div>
+
+        <div class="grid grid-cols-1 gap-3">
+          <div>
+            <label class="block text-[11px] font-mono text-slate-400 mb-1">COMMAND / OPCODE</label>
+            <select id="cmd-select" onchange="handleCommandChange()" class="w-full bg-slate-950 text-emerald-400 border border-slate-700/80 rounded-lg p-2.5 text-xs font-mono focus:outline-none focus:border-emerald-500">
+              <optgroup label="String Memory I/O">
+                <option value="cout">std::cout (Print String Buffer)</option>
+              </optgroup>
+              <optgroup label="C++ 32-Bit Arithmetic">
+                <option value="add">add(a, b) - Binary i32.add</option>
+                <option value="sub">sub(a, b) - Binary i32.sub</option>
+                <option value="mult">mult(a, b) - Binary i32.mul</option>
+                <option value="div">div(a, b) - Binary i32.div_s</option>
+              </optgroup>
+            </select>
+          </div>
+
+          <!-- Dynamic Parameter Inputs -->
+          <div id="param-container-text" class="space-y-1">
+            <label class="block text-[11px] font-mono text-slate-400">STRING BUFFER VALUE</label>
+            <input type="text" id="cmd-text-arg" value="Hello from Cppify WebAssembly!" placeholder="Enter text string..." oninput="syncCodeFromInputs()" class="w-full bg-slate-950 text-slate-200 border border-slate-700/80 rounded-lg p-2.5 text-xs font-mono focus:outline-none focus:border-emerald-500">
+          </div>
+
+          <div id="param-container-math" class="hidden grid-cols-2 gap-2">
+            <div>
+              <label class="block text-[11px] font-mono text-slate-400 mb-1">INTEGER A (i32)</label>
+              <input type="number" id="cmd-num-a" value="100" oninput="syncCodeFromInputs()" class="w-full bg-slate-950 text-cyan-300 border border-slate-700/80 rounded-lg p-2.5 text-xs font-mono focus:outline-none focus:border-cyan-500">
+            </div>
+            <div>
+              <label class="block text-[11px] font-mono text-slate-400 mb-1">INTEGER B (i32)</label>
+              <input type="number" id="cmd-num-b" value="25" oninput="syncCodeFromInputs()" class="w-full bg-slate-950 text-cyan-300 border border-slate-700/80 rounded-lg p-2.5 text-xs font-mono focus:outline-none focus:border-cyan-500">
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- MAIN EDITOR PANEL -->
+      <div class="flex-1 p-4 flex flex-col space-y-2 min-h-[280px]">
+        <div class="flex items-center justify-between">
+          <span class="text-xs font-semibold text-slate-400 uppercase tracking-wider font-mono flex items-center">
+            <i class="fa-solid fa-code text-cyan-400 mr-2"></i>Cppify C++ Source Code
+          </span>
+          <div class="flex items-center space-x-2">
+            <span id="editor-status-badge" class="px-2 py-0.5 text-[10px] font-mono bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 rounded">Valid Syntax</span>
+            <button onclick="clearEditor()" class="text-slate-500 hover:text-slate-300 text-xs font-mono transition" title="Clear Code">
+              <i class="fa-solid fa-eraser"></i> Clear
+            </button>
+          </div>
+        </div>
+
+        <div class="relative flex-1 rounded-xl border border-slate-800 bg-slate-950 p-3 flex focus-within:border-emerald-500/80 transition-all shadow-inner overflow-hidden">
+          <!-- Line Numbers -->
+          <div id="line-numbers" class="w-8 pr-2 text-right font-mono text-xs text-slate-600 select-none leading-relaxed border-r border-slate-800/60 mr-2 shrink-0">
+            1<br>2<br>3<br>4<br>5
+          </div>
+          
+          <textarea id="source-editor" oninput="handleManualCodeInput()" spellcheck="false" class="w-full h-full bg-transparent text-emerald-400 font-mono text-xs focus:outline-none resize-none leading-relaxed" placeholder="// Enter code, e.g. std::cout << &quot;Hello Cppify&quot;;"></textarea>
+        </div>
+      </div>
+
+      <!-- COMPILE & RUN TRIGGER -->
+      <div class="p-4 border-t border-slate-800/80 bg-slate-900/80 flex space-x-2">
+        <button id="compile-btn" onclick="executeCompilePipeline()" class="flex-1 py-3 bg-gradient-to-r from-emerald-500 to-cyan-500 hover:from-emerald-400 hover:to-cyan-400 text-slate-950 font-mono font-bold text-sm rounded-xl shadow-lg shadow-emerald-500/20 hover:shadow-emerald-500/40 active:scale-[0.98] transition flex items-center justify-center space-x-2">
+          <i class="fa-solid fa-play text-slate-950"></i>
+          <span>COMPILE & RUN (WASM CPU)</span>
+        </button>
       </div>
     </div>
-    
-    <label>Source Code Representation:</label>
-    <textarea id="source">print Pure Client</textarea>
-    
-    <button onclick="runCompiler()">Compile to Machine Code & Execute</button>
-  </div>
 
-  <div class="grid">
-    <div class="card">
-      <label>Stage 1: Lexer Tokens:</label>
-      <pre id="lex-output" class="tokens">Awaiting compilation...</pre>
+    <!-- RIGHT COLUMN: MULTI-STAGE OUTPUT INSPECTOR -->
+    <div class="flex-1 bg-slate-950 flex flex-col overflow-hidden relative scanline">
+      
+      <!-- STAGE TABS -->
+      <div class="h-10 bg-slate-900/70 border-b border-slate-800/80 px-4 flex items-center space-x-2 overflow-x-auto shrink-0">
+        <button onclick="switchTab('cpu')" id="tab-cpu" class="px-3 py-1.5 rounded-t-lg text-xs font-mono font-medium flex items-center space-x-2 border-b-2 border-emerald-400 text-emerald-400 bg-slate-800/50">
+          <i class="fa-solid fa-terminal text-[11px]"></i>
+          <span>Stage 1: CPU Console</span>
+        </button>
+        <button onclick="switchTab('lexer')" id="tab-lexer" class="px-3 py-1.5 rounded-t-lg text-xs font-mono font-medium flex items-center space-x-2 border-b-2 border-transparent text-slate-400 hover:text-slate-200">
+          <i class="fa-solid fa-cubes text-[11px]"></i>
+          <span>Stage 2: Lexical AST Tokens</span>
+        </button>
+        <button onclick="switchTab('bytecode')" id="tab-bytecode" class="px-3 py-1.5 rounded-t-lg text-xs font-mono font-medium flex items-center space-x-2 border-b-2 border-transparent text-slate-400 hover:text-slate-200">
+          <i class="fa-solid fa-microchip text-[11px]"></i>
+          <span>Stage 3: Wasm Bytecode</span>
+        </button>
+        <button onclick="switchTab('disasm')" id="tab-disasm" class="px-3 py-1.5 rounded-t-lg text-xs font-mono font-medium flex items-center space-x-2 border-b-2 border-transparent text-slate-400 hover:text-slate-200">
+          <i class="fa-solid fa-layer-group text-[11px]"></i>
+          <span>Stage 4: Disassembly</span>
+        </button>
+      </div>
+
+      <!-- TAB CONTENT PANELS -->
+      <div class="flex-1 p-4 overflow-y-auto space-y-4">
+
+        <!-- PANEL 1: HARDWARE CPU EXECUTION CONSOLE -->
+        <div id="panel-cpu" class="space-y-4">
+          <div class="bg-slate-900/80 border border-slate-800 rounded-xl p-4 flex flex-col h-[480px]">
+            <div class="flex items-center justify-between pb-3 border-b border-slate-800 mb-3">
+              <div class="flex items-center space-x-2">
+                <div class="w-3 h-3 rounded-full bg-red-500/80"></div>
+                <div class="w-3 h-3 rounded-full bg-yellow-500/80"></div>
+                <div class="w-3 h-3 rounded-full bg-emerald-500/80"></div>
+                <span class="text-xs font-mono text-slate-400 ml-2">Native WebAssembly execution stdout</span>
+              </div>
+              <div class="flex items-center space-x-3">
+                <span id="execution-time-badge" class="text-[11px] font-mono text-emerald-400">0.00 ms execution time</span>
+                <button onclick="clearConsole()" class="text-slate-400 hover:text-slate-200 text-xs font-mono transition">
+                  <i class="fa-solid fa-trash-can mr-1"></i>Clear
+                </button>
+              </div>
+            </div>
+
+            <div id="cpu-terminal-out" class="flex-1 bg-slate-950 p-4 rounded-lg font-mono text-xs overflow-y-auto space-y-2 border border-slate-800/80">
+              <div class="text-slate-500">[Cppify Engine]: Ready. Press "COMPILE & RUN" to execute C++ code natively on WebAssembly VM.</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- PANEL 2: LEXICAL AST TOKENS -->
+        <div id="panel-lexer" class="hidden space-y-4">
+          <div class="bg-slate-900/60 border border-slate-800 rounded-xl p-4">
+            <div class="flex items-center justify-between mb-3">
+              <h3 class="text-xs font-mono font-bold text-slate-300 uppercase tracking-wider flex items-center">
+                <i class="fa-solid fa-cubes text-emerald-400 mr-2"></i>Token Stream Visualizer
+              </h3>
+              <span id="token-count-badge" class="px-2 py-0.5 bg-emerald-950 text-emerald-400 border border-emerald-800 rounded text-[11px] font-mono">0 Tokens</span>
+            </div>
+            <div id="visual-tokens-container" class="flex flex-wrap gap-2 p-3 bg-slate-950/80 rounded-lg border border-slate-800 min-h-[60px] items-center">
+              <span class="text-xs text-slate-500 font-mono italic">Awaiting compilation...</span>
+            </div>
+          </div>
+
+          <div class="bg-slate-900/60 border border-slate-800 rounded-xl p-4">
+            <h3 class="text-xs font-mono font-bold text-slate-300 uppercase tracking-wider mb-2 flex items-center">
+              <i class="fa-solid fa-code-branch text-cyan-400 mr-2"></i>Pretty JSON Token Representation
+            </h3>
+            <pre id="token-json-out" class="p-3 bg-slate-950 rounded-lg text-xs font-mono text-cyan-300 overflow-x-auto border border-slate-800/80">{}</pre>
+          </div>
+        </div>
+
+        <!-- PANEL 3: WEBASSEMBLY MACHINE BYTECODE -->
+        <div id="panel-bytecode" class="hidden space-y-4">
+          <!-- Bytecode Metrics Bar -->
+          <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <div class="bg-slate-900/80 border border-slate-800 p-3 rounded-xl">
+              <span class="block text-[10px] font-mono text-slate-400 uppercase">Binary Size</span>
+              <span id="metric-bytes" class="text-base font-mono font-bold text-emerald-400">0 Bytes</span>
+            </div>
+            <div class="bg-slate-900/80 border border-slate-800 p-3 rounded-xl">
+              <span class="block text-[10px] font-mono text-slate-400 uppercase">Wasm Header</span>
+              <span class="text-base font-mono font-bold text-cyan-400">\0asm (v1)</span>
+            </div>
+            <div class="bg-slate-900/80 border border-slate-800 p-3 rounded-xl">
+              <span class="block text-[10px] font-mono text-slate-400 uppercase">Wasm Memory</span>
+              <span class="text-base font-mono font-bold text-purple-400">64 KiB Page</span>
+            </div>
+            <div class="bg-slate-900/80 border border-slate-800 p-3 rounded-xl">
+              <span class="block text-[10px] font-mono text-slate-400 uppercase">Encoding Engine</span>
+              <span class="text-base font-mono font-bold text-yellow-400">LEB128 Variable</span>
+            </div>
+          </div>
+
+          <div class="bg-slate-900/60 border border-slate-800 rounded-xl p-4">
+            <div class="flex items-center justify-between mb-2">
+              <h3 class="text-xs font-mono font-bold text-slate-300 uppercase tracking-wider flex items-center">
+                <i class="fa-solid fa-binary text-purple-400 mr-2"></i>Raw Machine Hex Dump Matrix
+              </h3>
+              <span class="text-[10px] font-mono text-slate-500">Binary Output Stream</span>
+            </div>
+            <pre id="wasm-hex-matrix" class="p-3 bg-slate-950 rounded-lg text-xs font-mono text-purple-300 overflow-x-auto border border-slate-800 leading-relaxed break-all">Awaiting compilation...</pre>
+          </div>
+        </div>
+
+        <!-- PANEL 4: DISASSEMBLY INSPECTOR -->
+        <div id="panel-disasm" class="hidden space-y-4">
+          <div class="bg-slate-900/60 border border-slate-800 rounded-xl p-4">
+            <h3 class="text-xs font-mono font-bold text-slate-300 uppercase tracking-wider mb-2 flex items-center">
+              <i class="fa-solid fa-layer-group text-emerald-400 mr-2"></i>Human Readable Wasm Opcode Disassembly
+            </h3>
+            <div id="disassembly-view" class="space-y-1.5 font-mono text-xs">
+              <div class="text-slate-500 italic">No instructions compiled yet.</div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- FOOTER STATUS BAR -->
+      <footer class="h-8 bg-slate-900/90 border-t border-slate-800/80 px-4 flex items-center justify-between text-[11px] font-mono text-slate-400 shrink-0">
+        <div class="flex items-center space-x-4">
+          <span class="flex items-center text-emerald-400">
+            <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 mr-1.5 animate-pulse"></span> Cppify Native VM Active
+          </span>
+          <span class="text-slate-600">|</span>
+          <span class="text-slate-400">Zero-API Client Compiler</span>
+        </div>
+        <div class="flex items-center space-x-3 text-slate-500">
+          <span>Target: WebAssembly MVP (i32)</span>
+        </div>
+      </footer>
+
     </div>
-    <div class="card">
-      <label>Stage 2: Machine Bytecode (Hex):</label>
-      <pre id="wasm-output" class="bytecode">Awaiting compilation...</pre>
-    </div>
+
   </div>
 
-  <div class="card">
-    <label>Stage 3: CPU Hardware Execution Output:</label>
-    <pre id="cpu-output">Click button to execute...</pre>
-  </div>
-
+  <!-- COMPILER ENGINE & APP LOGIC -->
   <script>
-    function updateTemplate() {
-      const type = document.getElementById('cmd-select').value;
-      const argsInput = document.getElementById('cmd-args');
-      const sourceBox = document.getElementById('source');
+    // Global State
+    let currentCompiledWasmBytes = null;
 
-      if (type === 'print') {
-        argsInput.value = "Pure Client";
-        sourceBox.value = "print Pure Client";
-      } else {
-        argsInput.value = "20 5";
-        sourceBox.value = `${type} 20 5`;
-      }
+    // Toast Notification Banner
+    function showToast(msg, isError = false) {
+      const existing = document.getElementById('cppify-toast');
+      if (existing) existing.remove();
+
+      const toast = document.createElement('div');
+      toast.id = 'cppify-toast';
+      toast.className = `fixed bottom-12 right-6 px-4 py-2.5 rounded-xl font-mono text-xs font-bold border shadow-2xl z-50 flex items-center space-x-2 transition-all transform translate-y-0 ${
+        isError ? 'bg-red-950 text-red-300 border-red-800' : 'bg-emerald-950 text-emerald-300 border-emerald-800'
+      }`;
+      toast.innerHTML = `<i class="fa-solid ${isError ? 'fa-circle-xmark' : 'fa-circle-check'}"></i> <span>${msg}</span>`;
+      document.body.appendChild(toast);
+
+      setTimeout(() => {
+        toast.classList.add('opacity-0', 'translate-y-2');
+        setTimeout(() => toast.remove(), 300);
+      }, 2500);
     }
 
-    document.getElementById('cmd-args').addEventListener('input', (e) => {
-      const type = document.getElementById('cmd-select').value;
-      document.getElementById('source').value = `${type} ${e.target.value}`;
-    });
+    // Audio Feedback Generator using Web Audio API
+    function playBeep(freq = 520, type = 'sine') {
+      try {
+        const AudioCtx = window.AudioContext || window.webkitAudioContext;
+        if (!AudioCtx) return;
+        const ctx = new AudioCtx();
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = type;
+        osc.frequency.value = freq;
+        gain.gain.setValueAtTime(0.04, ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.12);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start();
+        osc.stop(ctx.currentTime + 0.12);
+      } catch (e) {}
+    }
+
+    // Template Selector Loader
+    function loadSelectedTemplate() {
+      const val = document.getElementById('template-select').value;
+      const cmdSelect = document.getElementById('cmd-select');
+      const textInput = document.getElementById('cmd-text-arg');
+      const numA = document.getElementById('cmd-num-a');
+      const numB = document.getElementById('cmd-num-b');
+
+      if (val === 'hello') {
+        cmdSelect.value = 'cout';
+        textInput.value = 'Hello World from Cppify!';
+      } else if (val === 'add') {
+        cmdSelect.value = 'add';
+        numA.value = 42;
+        numB.value = 58;
+      } else if (val === 'sub') {
+        cmdSelect.value = 'sub';
+        numA.value = 100;
+        numB.value = 35;
+      } else if (val === 'mult') {
+        cmdSelect.value = 'mult';
+        numA.value = 12;
+        numB.value = 12;
+      } else if (val === 'div') {
+        cmdSelect.value = 'div';
+        numA.value = 144;
+        numB.value = 12;
+      } else if (val === 'complex') {
+        cmdSelect.value = 'cout';
+        textInput.value = 'CPPIFY_BUFFER_STRING_0x4F89';
+      }
+      handleCommandChange();
+      executeCompilePipeline();
+      showToast(`Loaded Template: ${val.toUpperCase()}`);
+    }
+
+    // Command Selector Switcher
+    function handleCommandChange() {
+      const cmd = document.getElementById('cmd-select').value;
+      const textContainer = document.getElementById('param-container-text');
+      const mathContainer = document.getElementById('param-container-math');
+
+      if (cmd === 'cout') {
+        textContainer.classList.remove('hidden');
+        mathContainer.classList.add('hidden');
+        mathContainer.classList.remove('grid');
+      } else {
+        textContainer.classList.add('hidden');
+        mathContainer.classList.remove('hidden');
+        mathContainer.classList.add('grid');
+      }
+      syncCodeFromInputs();
+    }
+
+    // Sync input fields to code editor with C++ syntax
+    function syncCodeFromInputs() {
+      const cmd = document.getElementById('cmd-select').value;
+      const editor = document.getElementById('source-editor');
+
+      if (cmd === 'cout') {
+        const val = document.getElementById('cmd-text-arg').value;
+        editor.value = `std::cout << "${val}";`;
+      } else {
+        const a = document.getElementById('cmd-num-a').value;
+        const b = document.getElementById('cmd-num-b').value;
+        editor.value = `int result = ${cmd}(${a}, ${b});`;
+      }
+      updateLineNumbers();
+    }
+
+    function handleManualCodeInput() {
+      updateLineNumbers();
+    }
+
+    function updateLineNumbers() {
+      const editor = document.getElementById('source-editor');
+      const lines = editor.value.split('\n').length;
+      let lineStr = '';
+      for (let i = 1; i <= Math.max(lines, 5); i++) {
+        lineStr += i + '<br>';
+      }
+      document.getElementById('line-numbers').innerHTML = lineStr;
+    }
+
+    function clearEditor() {
+      document.getElementById('source-editor').value = '';
+      updateLineNumbers();
+      showToast('Editor cleared');
+    }
+
+    // Tab Switcher
+    function switchTab(tabName) {
+      const tabs = ['cpu', 'lexer', 'bytecode', 'disasm'];
+      tabs.forEach(t => {
+        const btn = document.getElementById(`tab-${t}`);
+        const panel = document.getElementById(`panel-${t}`);
+        if (t === tabName) {
+          btn.className = "px-3 py-1.5 rounded-t-lg text-xs font-mono font-medium flex items-center space-x-2 border-b-2 border-emerald-400 text-emerald-400 bg-slate-800/50";
+          panel.classList.remove('hidden');
+        } else {
+          btn.className = "px-3 py-1.5 rounded-t-lg text-xs font-mono font-medium flex items-center space-x-2 border-b-2 border-transparent text-slate-400 hover:text-slate-200";
+          panel.classList.add('hidden');
+        }
+      });
+    }
 
     // =========================================================================
-    // STAGE 1: LEXER
+    // CPPIFY STAGE 1: LEXER / AST PARSER
     // =========================================================================
     function lexer(sourceCode) {
-      let code = sourceCode.trim();
+      const code = sourceCode.trim();
       if (!code) return [];
 
-      if (code.startsWith('"') || code.startsWith('(') || 
-         (!code.startsWith('print') && !code.startsWith('add') && !code.startsWith('sub') && !code.startsWith('mult') && !code.startsWith('div'))) {
-        code = code.replace(/^[("']+|[)"']+$]/g, '').trim();
-        return ['print', code];
+      // C++ std::cout parsing
+      if (code.includes('std::cout') || code.includes('cout')) {
+        const quoteMatch = code.match(/"([^"]*)"/);
+        const strVal = quoteMatch ? quoteMatch[1] : code.replace(/.*cout\s*<<\s*/, '').replace(/;$/, '');
+        return [
+          { type: 'NAMESPACE', value: 'std' },
+          { type: 'OPERATOR', value: '::' },
+          { type: 'COMMAND', value: 'cout' },
+          { type: 'STREAM_OP', value: '<<' },
+          { type: 'STRING_LITERAL', value: strVal }
+        ];
       }
 
-      const spaceIdx = code.indexOf(' ');
-      if (spaceIdx === -1) return [code];
-      const command = code.substring(0, spaceIdx).trim();
-      let rest = code.substring(spaceIdx + 1).trim();
-      
-      if (command === 'print') {
-        rest = rest.replace(/^[("']+|[)"']+$]/g, '').trim();
-        return ['print', rest];
+      // C++ function math parsing: add(10, 20) or int result = add(10, 20)
+      const mathMatch = code.match(/(add|sub|mult|div)\s*\(\s*(-?\d+)\s*,\s*(-?\d+)\s*\)/);
+      if (mathMatch) {
+        return [
+          { type: 'COMMAND', value: mathMatch[1] },
+          { type: 'ARG_INT', value: mathMatch[2] },
+          { type: 'ARG_INT', value: mathMatch[3] }
+        ];
       }
-      
-      return [command, ...rest.split(/\s+/).filter(Boolean)];
+
+      // Fallback simple keyword lexing
+      const parts = code.split(/\s+/).filter(Boolean);
+      return parts.map(p => ({
+        type: isNaN(p) ? 'IDENTIFIER' : 'NUMBER_LITERAL',
+        value: p
+      }));
     }
 
-    // LEB128 Unsigned Encoder
+    // LEB128 Variable Length Unsigned Integer Encoder
     function encodeLeb128(value) {
       const bytes = [];
       do {
@@ -122,33 +538,36 @@
       return bytes;
     }
 
-    // Helper to create valid WASM Section
     function makeSection(id, payload) {
       return [id, ...encodeLeb128(payload.length), ...payload];
     }
 
     // =========================================================================
-    // STAGE 2: WASM BINARY CODE GENERATOR
+    // CPPIFY STAGE 2 & 4: WEBASSEMBLY COMPILER & DISASSEMBLER
     // =========================================================================
-    function compileToMachineCode(tokens) {
-      if (tokens.length === 0) throw new Error("Empty source code.");
-      const command = tokens[0];
+    function compileToWasmBinary(tokens) {
+      if (tokens.length === 0) throw new Error("Empty code stream.");
       const WASM_MAGIC = [0x00, 0x61, 0x73, 0x6d, 0x01, 0x00, 0x00, 0x00];
 
-      if (command === "print") {
-        const textStr = tokens[1] || "";
+      let disassemblyLog = [
+        { section: "Header", desc: "WASM Magic Header (\\0asm) & Version 0x01" }
+      ];
+
+      const coutToken = tokens.find(t => t.value === 'cout' || t.type === 'STRING_LITERAL');
+      if (coutToken) {
+        const strObj = tokens.find(t => t.type === 'STRING_LITERAL');
+        const textStr = strObj ? strObj.value : "Hello Cppify";
         const textBytes = Array.from(new TextEncoder().encode(textStr));
 
         const typeSec = makeSection(1, [0x01, 0x60, 0x00, 0x00]); // () -> ()
         const importSec = makeSection(2, [0x01, 0x03, 0x65, 0x6e, 0x76, 0x06, 0x6d, 0x65, 0x6d, 0x6f, 0x72, 0x79, 0x02, 0x00, 0x01]);
         const funcSec = makeSection(3, [0x01, 0x00]);
         const exportSec = makeSection(7, [0x01, 0x03, 0x72, 0x75, 0x6e, 0x00, 0x00]);
-        const codeSec = makeSection(10, [0x01, 0x02, 0x00, 0x0b]); // empty func
-        
-        // Data section construction with precise segment byte offsets
+        const codeSec = makeSection(10, [0x01, 0x02, 0x00, 0x0b]);
+
         const dataSegment = [
-          0x00,             // memory index 0
-          0x41, 0x00, 0x0b, // offset 0
+          0x00,
+          0x41, 0x00, 0x0b, // i32.const 0, end
           ...encodeLeb128(textBytes.length),
           ...textBytes
         ];
@@ -157,66 +576,192 @@
         const binaryBytes = new Uint8Array([
           ...WASM_MAGIC, ...typeSec, ...importSec, ...funcSec, ...exportSec, ...codeSec, ...dataSec
         ]);
-        
-        return { type: "print", binaryBytes, length: textBytes.length };
+
+        disassemblyLog.push(
+          { section: "Type Section (1)", desc: "type 0: () -> ()" },
+          { section: "Import Section (2)", desc: "import env.memory (1 page)" },
+          { section: "Export Section (7)", desc: "export func 'run'" },
+          { section: "Code Section (10)", desc: "func 0: return void" },
+          { section: "Data Section (11)", desc: `data offset 0x0: "${textStr}" (${textBytes.length} bytes)` }
+        );
+
+        return { type: "cout", binaryBytes, length: textBytes.length, disassemblyLog };
       }
 
+      // Arithmetic Commands
+      const cmdToken = tokens.find(t => ['add', 'sub', 'mult', 'div'].includes(t.value));
       const opMap = { add: 0x6a, sub: 0x6b, mult: 0x6c, div: 0x6d };
-      if (opMap[command]) {
-        const a = parseInt(tokens[1], 10) || 0;
-        const b = parseInt(tokens[2], 10) || 0;
-        const opcode = opMap[command];
 
-        const typeSec = makeSection(1, [0x01, 0x60, 0x02, 0x7f, 0x7f, 0x01, 0x7f]);
+      if (cmdToken) {
+        const cmd = cmdToken.value;
+        const argTokens = tokens.filter(t => t.type === 'ARG_INT' || t.type === 'NUMBER_LITERAL');
+        const a = argTokens[0] ? parseInt(argTokens[0].value, 10) : 0;
+        const b = argTokens[1] ? parseInt(argTokens[1].value, 10) : 0;
+        const opcode = opMap[cmd];
+
+        const typeSec = makeSection(1, [0x01, 0x60, 0x02, 0x7f, 0x7f, 0x01, 0x7f]); // (i32, i32) -> i32
         const funcSec = makeSection(3, [0x01, 0x00]);
         const exportSec = makeSection(7, [0x01, 0x03, 0x72, 0x75, 0x6e, 0x00, 0x00]);
         const codeSec = makeSection(10, [0x01, 0x07, 0x00, 0x20, 0x00, 0x20, 0x01, opcode, 0x0b]);
 
         const binaryBytes = new Uint8Array([...WASM_MAGIC, ...typeSec, ...funcSec, ...exportSec, ...codeSec]);
-        return { type: "math", binaryBytes, a, b, command };
+
+        disassemblyLog.push(
+          { section: "Type Section (1)", desc: "type 0: (i32, i32) -> i32" },
+          { section: "Export Section (7)", desc: "export func 'run'" },
+          { section: "Code Section (10)", desc: `local.get 0\nlocal.get 1\n0x${opcode.toString(16).toUpperCase()} (i32.${cmd})\nend` }
+        );
+
+        return { type: "math", binaryBytes, a, b, command: cmd, disassemblyLog };
       }
 
-      throw new Error(`Unknown instruction: "${command}"`);
+      throw new Error("Unable to parse valid C++ std::cout or math function call.");
     }
 
     // =========================================================================
-    // STAGE 3: EXECUTION ENGINE
+    // CPPIFY STAGE 3: HARDWARE CPU EXECUTION CONSOLE & PIPELINE TRIGGER
     // =========================================================================
-    async function runCompiler() {
-      const sourceCode = document.getElementById('source').value;
-      const lexOutput = document.getElementById('lex-output');
-      const wasmOutput = document.getElementById('wasm-output');
-      const cpuOutput = document.getElementById('cpu-output');
+    async function executeCompilePipeline() {
+      playBeep(650, 'triangle');
+      const startTime = performance.now();
+
+      const sourceCode = document.getElementById('source-editor').value;
+      const visualTokenBox = document.getElementById('visual-tokens-container');
+      const jsonTokenBox = document.getElementById('token-json-out');
+      const tokenCountBadge = document.getElementById('token-count-badge');
+      const hexMatrixBox = document.getElementById('wasm-hex-matrix');
+      const disasmViewBox = document.getElementById('disassembly-view');
 
       try {
+        // STAGE 1: LEXING / TOKENS
         const tokens = lexer(sourceCode);
-        lexOutput.innerText = JSON.stringify(tokens, null, 2);
+        tokenCountBadge.innerText = `${tokens.length} Tokens`;
+        jsonTokenBox.innerText = JSON.stringify(tokens, null, 2);
 
-        const compiled = compileToMachineCode(tokens);
-        const hexString = Array.from(compiled.binaryBytes)
-          .map(b => '0x' + b.toString(16).padStart(2, '0').toUpperCase())
+        visualTokenBox.innerHTML = '';
+        tokens.forEach(t => {
+          const pill = document.createElement('span');
+          pill.className = `px-2.5 py-1 rounded-md text-xs font-mono font-bold flex items-center space-x-1.5 border shadow-sm ${
+            t.type === 'COMMAND' || t.type === 'NAMESPACE' ? 'bg-emerald-950 text-emerald-300 border-emerald-800' :
+            t.type === 'STRING_LITERAL' ? 'bg-cyan-950 text-cyan-300 border-cyan-800' :
+            'bg-purple-950 text-purple-300 border-purple-800'
+          }`;
+          pill.innerHTML = `<span class="opacity-50 text-[10px]">${t.type}:</span> <span>"${t.value}"</span>`;
+          visualTokenBox.appendChild(pill);
+        });
+
+        // STAGE 2 & 4: WASM BINARY & DISASSEMBLY
+        const compiled = compileToWasmBinary(tokens);
+        currentCompiledWasmBytes = compiled.binaryBytes;
+
+        document.getElementById('metric-bytes').innerText = `${compiled.binaryBytes.length} Bytes`;
+        const hexFormatted = Array.from(compiled.binaryBytes)
+          .map((b, i) => `<span class="${i < 8 ? 'text-emerald-400 font-bold' : 'text-purple-300'}">0x${b.toString(16).padStart(2, '0').toUpperCase()}</span>`)
           .join(' ');
-        wasmOutput.innerText = hexString;
+        hexMatrixBox.innerHTML = hexFormatted;
 
-        if (compiled.type === "print") {
+        disasmViewBox.innerHTML = '';
+        compiled.disassemblyLog.forEach(item => {
+          const row = document.createElement('div');
+          row.className = "flex flex-col sm:flex-row sm:items-center justify-between p-2.5 bg-slate-950 rounded-lg border border-slate-800/80 hover:border-emerald-500/50 transition";
+          row.innerHTML = `<span class="text-emerald-400 font-bold">${item.section}:</span> <span class="text-slate-300">${item.desc}</span>`;
+          disasmViewBox.appendChild(row);
+        });
+
+        // STAGE 3: NATIVE HARDWARE CPU EXECUTION
+        const timestamp = new Date().toLocaleTimeString();
+
+        if (compiled.type === "cout") {
           const memory = new WebAssembly.Memory({ initial: 1 });
           const module = await WebAssembly.instantiate(compiled.binaryBytes, { env: { memory } });
           module.instance.exports.run();
+
           const buffer = new Uint8Array(memory.buffer, 0, compiled.length);
           const printed = new TextDecoder().decode(buffer);
-          cpuOutput.innerText = `[stdout]: ${printed}\n\n[Status]: Executed in WebAssembly memory without errors!`;
+
+          appendConsoleLog(`[${timestamp}] <span class="text-emerald-400 font-bold">[stdout]:</span> ${escapeHtml(printed)}`);
+          appendConsoleLog(`[${timestamp}] <span class="text-cyan-400">[Cpu VM]:</span> Read ${compiled.length} bytes from Wasm Page Memory 0x0`);
         } else {
           const module = await WebAssembly.instantiate(compiled.binaryBytes);
           const result = module.instance.exports.run(compiled.a, compiled.b);
-          cpuOutput.innerText = `[Result]: ${compiled.command}(${compiled.a}, ${compiled.b}) = ${result}\n\n[Status]: Executed directly on CPU registers.`;
+
+          appendConsoleLog(`[${timestamp}] <span class="text-emerald-400 font-bold">[stdout]:</span> ${compiled.command}(${compiled.a}, ${compiled.b}) = <strong class="text-yellow-300 text-sm">${result}</strong>`);
+          appendConsoleLog(`[${timestamp}] <span class="text-cyan-400">[Cpu VM]:</span> Register evaluation completed.`);
         }
+
+        const endTime = performance.now();
+        document.getElementById('execution-time-badge').innerText = `${(endTime - startTime).toFixed(2)} ms execution time`;
+
+        showToast("Compiled & Executed Natively!");
+        playBeep(850, 'sine');
+
       } catch (err) {
-        lexOutput.innerText = "Error";
-        wasmOutput.innerText = "N/A";
-        cpuOutput.innerText = "Compilation/Execution Error: " + err.message;
+        appendConsoleLog(`<span class="text-red-400 font-bold">[Cppify Compile Error]:</span> ${err.message}`, true);
+        showToast("Compilation Failed", true);
+        playBeep(220, 'sawtooth');
       }
     }
-  </script>
 
+    function appendConsoleLog(htmlContent, isError = false) {
+      const consoleBox = document.getElementById('cpu-terminal-out');
+      const entry = document.createElement('div');
+      entry.className = `p-2.5 rounded-lg border font-mono text-xs ${isError ? 'bg-red-950/40 border-red-800/80 text-red-300' : 'bg-slate-900/60 border-slate-800 text-slate-200'}`;
+      entry.innerHTML = htmlContent;
+      consoleBox.appendChild(entry);
+      consoleBox.scrollTop = consoleBox.scrollHeight;
+    }
+
+    function clearConsole() {
+      document.getElementById('cpu-terminal-out').innerHTML = '<div class="text-slate-500">[Cppify Engine]: Console cleared.</div>';
+    }
+
+    function escapeHtml(str) {
+      return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+    }
+
+    // EXPORT TOOLS
+    function copyWasmHex() {
+      if (!currentCompiledWasmBytes) {
+        showToast("Compile code first!", true);
+        return;
+      }
+      const hexStr = Array.from(currentCompiledWasmBytes)
+        .map(b => '0x' + b.toString(16).padStart(2, '0').toUpperCase())
+        .join(' ');
+
+      const textarea = document.createElement('textarea');
+      textarea.value = hexStr;
+      document.body.appendChild(textarea);
+      textarea.select();
+      document.execCommand('copy');
+      document.body.removeChild(textarea);
+
+      showToast("WASM Hex copied to clipboard!");
+    }
+
+    function downloadWasm() {
+      if (!currentCompiledWasmBytes) {
+        showToast("Compile code first!", true);
+        return;
+      }
+      const blob = new Blob([currentCompiledWasmBytes], { type: 'application/wasm' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'cppify_module.wasm';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+
+      showToast("Downloaded cppify_module.wasm");
+    }
+
+    // Initialize App
+    window.onload = () => {
+      syncCodeFromInputs();
+      executeCompilePipeline();
+    };
+  </script>
 </body>
 </html>

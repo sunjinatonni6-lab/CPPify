@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#0b1222">
+  <title>Cppify TinyBasic Interpreter</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="#" aria-label="Cppify Lite home">
+      <span class="brand-mark">&lt;/&gt;</span><span>Cppify<span class="brand-dot">.IDE</span></span>
+      <span class="brand-tag">TINYBASIC INTERPRETER</span>
+    </a>
+    <div class="top-actions">
+      <span class="engine-status"><i></i> JS Interpreter Ready</span>
+      <select id="examples" aria-label="Choose example">
+        <option value="">⚡ Example: Hello World</option>
+        <option value="hello">Hello World</option>
+        <option value="input">User Input</option>
+        <option value="math">Arithmetic</option>
+        <option value="variables">Variables</option>
+      </select>
+      <button id="resetBtn" class="secondary-btn">↻ Reset</button>
+    </div>
+  </header>
+
+  <main class="workspace">
+    <aside class="sidebar">
+      <section class="reference">
+        <div class="section-heading"><span>▣ LANGUAGE QUICK REFERENCE</span><small>TinyBasic Lite</small></div>
+        <div class="syntax-card">
+          <div class="comment">// Declare variables</div>
+          <div><b>let</b> total = <em>10</em>;</div>
+          <div><b>print</b> total + <em>5</em>;</div>
+          <div><b>input</b> name;</div>
+          <div class="muted">Operators: + &nbsp; - &nbsp; * &nbsp; / &nbsp; % &nbsp; ^ &nbsp; ( )</div>
+        </div>
+        <div class="reference-grid">
+            <div><b>let</b><span> — declare variable</span></div>
+            <div><b>print</b><span> — display output in the terminal</span></div>
+            <div><b>input</b><span> — receive user input</span></div>
+            <div><b>=</b><span> — assign a value to a variable</span></div>
+
+            <div><b>+</b><span> — addition and string concatenation</span></div>
+            <div><b>-</b><span> — subtraction</span></div>
+            <div><b>*</b><span> — multiplication</span></div>
+            <div><b>/</b><span> — division</span></div>
+            <div><b>%</b><span> — modulus (remainder)</span></div>
+            <div><b>^ / **</b><span> — power (exponentiation)</span></div>
+            <div><b>++</b><span> — increment variable by 1</span></div>
+            <div><b>--</b><span> — decrement variable by 1</span></div>
+            <div><b>( )</b><span> — group expressions and control precedence</span></div>
+            <div><b>+ / -</b><span> — unary positive and negative values</span></div>
+
+            <div><b>//</b><span> — single-line code comment</span></div>
+            <div><b>#</b><span> — single-line code comment</span></div>
+            <div><b>;</b><span> — optional line ending</span></div>
+        </div>
+        <p class="reference-note">A small educational programming language interpreted directly in your browser. No C++, Emscripten or WASM setup required.</p>
+      </section>
+
+    </aside>
+
+    <section class="main-panel">
+      <section class="editor-section source-panel">
+        <div class="section-heading">
+          <span>‹/› TINYBASIC SOURCE CODE</span>
+          <div class="editor-tools"><span class="ready-pill">INTERPRETER READY</span><button id="clearBtn" class="text-btn">⌫ Clear</button></div>
+        </div>
+        <div class="editor-wrap">
+          <div class="line-numbers" id="lineNumbers">1<br>2<br>3</div>
+          <textarea id="source" spellcheck="false" autocapitalize="off" autocomplete="off" aria-label="TinyBasic source code">print "Hello, World!";
+</textarea>
+        </div>
+        <div class="editor-footer">
+          <div class="editor-hint">Tip: Press <kbd>Ctrl</kbd> + <kbd>Enter</kbd> to run your program.</div>
+          <button id="runBtn" class="run-btn"><span>▶</span> COMPILE &amp; RUN</button>
+        </div>
+      </section>
+      <div class="terminal-card">
+        <div class="terminal-head">
+          <div class="terminal-title"><span class="traffic"><i></i><i></i><i></i></span><span id="panelTitle">TinyBasic VM · program output</span></div>
+          <div class="terminal-actions"><span id="runStatus">Ready</span><button id="terminalClear" class="text-btn">▤ Clear</button></div>
+        </div>
+        <div class="terminal-body">
+          <div id="consoleView" class="view active">
+            <div id="output" class="output" aria-live="polite"><div class="welcome">Welcome to Cppify Lite.<br>Click <b>Compile &amp; Run</b> to execute your first program.</div></div>
+            <form id="inputForm" class="input-form hidden">
+              <label id="inputLabel" for="runtimeInput">Program is requesting input:</label>
+              <div class="input-row"><input id="runtimeInput" type="text" autocomplete="off" placeholder="Type a value..."><button type="submit">Submit ↵</button></div>
+            </form>
+          </div>
+        </div>
+      </div>
+      <footer class="statusbar"><span><i></i> Cppify Lite Interpreter</span><span>Runs locally in your browser</span><span>Target: TinyBasic Lite VM</span></footer>
+    </section>
+  </main>
+  <script src="app.js"></script>
+</body>
+</html>

@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#101827">
+  <title>Cppify — Basic Language Compiler</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <main class="shell">
+    <header class="topbar">
+      <a class="brand" href="/">Cppify<span>.IDE</span></a>
+      <span class="engine-tag"><i></i> Python Local engine execution</span>
+    </header>
+
+    <section class="intro">
+      <p class="eyebrow"> Welcome</p></h1>
+      <h1> TINYBASIC INTERPRETER <span>Run it.</span></h1>
+      <p class="subtitle">A simple custom programming language, powered by local Python engine.</p>
+    </section>
+
+    <section class="workspace" aria-label="Code editor and output">
+      <div class="panel editor-panel">
+        <div class="panel-heading"><div><span class="dot dot-blue"></span> <strong>Source code</strong></div><span class="file-name">main.cppy</span></div>
+        <textarea id="code" spellcheck="false" autocapitalize="off" autocomplete="off">let x = 10
+let y = 20
+print "Total:"
+print x + y
+increment x
+print x</textarea>
+        <div class="toolbar">
+          <span class="hint">Tip: use <kbd>let</kbd>, <kbd>print</kbd>, <kbd>input</kbd></span>
+          <div class="actions"><button id="clear" class="secondary" type="button">Clear output</button><button id="run" class="primary" type="button"><span>▶</span> Run code</button></div>
+        </div>
+      </div>
+
+      <div class="panel output-panel">
+        <div class="panel-heading"><div><span class="dot dot-green"></span> <strong>Output</strong></div><span class="file-name">CONSOLE</span></div>
+        <pre id="output" aria-live="polite">Ready. Click “Run code” to execute your program.</pre>
+      </div>
+    </section>
+
+    <footer><span>Cppify Basic Compiler</span><span> Runs on your computer</span></footer>
+  </main>
+  <script src="/app.js" defer></script>
+</body>
+</html>
